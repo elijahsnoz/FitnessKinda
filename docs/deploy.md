@@ -1,139 +1,137 @@
 # Deploying fitnesskinda.fit
 
-One machine, one volume, SQLite on disk. Host: Fly.io. Config lives in `fly.toml`.
+Host: **Render** — one web service, one persistent disk, SQLite on that disk.
+Config lives in `render.yaml`. Domain: Namecheap.
 
-Health records are on that volume. **Read the Backups section before you need it.**
+Health records live on that disk. **Read Backups before you need it.**
 
 ---
 
-## Prerequisites
+## The one constraint that matters
 
-- `flyctl` installed (`brew install flyctl`)
-- A Fly account with a payment method (the smallest machine plus a 1 GB volume is a
-  few dollars a month; the app sleeps when idle)
-- The domain at Namecheap, DNS managed there
+Render's filesystem is **ephemeral without a disk**. On a free instance the database is
+wiped on every deploy, every restart and every idle spin-down — silently, with no error.
 
-## One-time setup
+A disk requires a paid instance. `render.yaml` sets `plan: starter` for that reason.
+Roughly $7/month for the instance plus about $0.25/GB/month for the disk. **Do not
+downgrade the plan to free.** If cost is the problem, the alternative is moving the data
+layer to a hosted Postgres — a real code change, not a setting.
 
-```sh
-fly auth login                                  # opens a browser
+Two more consequences of having a disk, both expected:
 
-fly apps create fitnesskinda --org personal
-fly volumes create fk_data --region lhr --size 1 --yes
+- Deploys are not zero-downtime. Render stops the old instance before starting the new
+  one, so there are a few seconds of downtime on each deploy.
+- The service cannot run more than one instance.
 
-# Secrets are not in fly.toml, because this repo is public.
-fly secrets set ADMIN_EMAILS=you@example.com
+## First deploy
 
-fly deploy --ha=false                           # one machine: only one can hold the volume
-```
+The blueprint in `render.yaml` describes everything except the secret.
 
-`--ha=false` matters. Fly creates two machines by default, and a second machine cannot
-attach the same volume.
-
-Check it before touching DNS:
-
-```sh
-fly status
-curl https://fitnesskinda.fly.dev/api/health    # {"status":"ok","database":"ok",...}
-```
-
-## DNS
+1. Render dashboard → **New** → **Blueprint** → connect `elijahsnoz/FitnessKinda`,
+   branch `main`. Render reads `render.yaml` and proposes the service and the disk.
+2. When it asks for `ADMIN_EMAILS` (marked `sync: false`), enter the address that should
+   be able to open `/admin`. It is not in the repo because the repo is public.
+3. Apply. The first build takes a couple of minutes.
+4. Check it before touching DNS:
 
 ```sh
-fly certs add fitnesskinda.fit
-fly ips list                                    # note the v4 and v6 addresses
+curl https://fitnesskinda.onrender.com/api/health
+# {"status":"ok","database":"ok","time":"..."}
 ```
 
-In Namecheap → Domain List → fitnesskinda.fit → **Advanced DNS**:
+If that returns ok, the app and the disk are both working.
 
-| Type | Host | Value |
-|---|---|---|
-| A | `@` | the IPv4 from `fly ips list` |
-| AAAA | `@` | the IPv6 from `fly ips list` |
+## Domain
 
-Delete the parking record Namecheap created (the one pointing at 162.255.119.32) or it
-will fight the new one. Then:
+1. Render → the service → **Settings** → **Custom Domains** → add `fitnesskinda.fit`
+   and `www.fitnesskinda.fit`.
+2. Render then shows **the exact DNS records to create**. Use those values — the apex
+   target is Render's and it is the one they display for your service, not a value to
+   copy from anywhere else.
+3. Namecheap → Domain List → fitnesskinda.fit → **Advanced DNS**:
+   - Apex (`@`): the A or ALIAS record Render gives you. Namecheap supports `ALIAS
+     Record`, which is the better choice if Render offers an ALIAS/ANAME target, because
+     it survives an IP change.
+   - `www`: `CNAME` → the `onrender.com` hostname Render shows.
+   - **Delete Namecheap's parking record** (the one pointing at `162.255.119.32`) and any
+     URL-redirect record, or they will fight the new ones.
+4. Back in Render, the domain shows **Verified** once DNS propagates, and the TLS
+   certificate is issued automatically a few minutes later.
 
-```sh
-fly certs check fitnesskinda.fit                # "Ready" once the certificate is issued
-```
-
-DNS usually settles in minutes; the certificate follows within a few more.
+`ALLOWED_ORIGINS` in `render.yaml` is already `https://fitnesskinda.fit`. If you serve
+the site from `www` as well, add it there, comma-separated, or writes from `www` will be
+refused with 403.
 
 ## Routine deploys
 
+`autoDeploy: true`, so pushing to `main` deploys.
+
 ```sh
-git push                    # the repo is the source of truth
-fly deploy --ha=false
+git push
 ```
 
 **Bump `CACHE` in `sw.js` whenever a shell file changes** — `index.html`, `styles.css`,
 anything under `js/`, `admin.html`. Skip it and returning visitors keep the old app
-indefinitely, because the service worker serves the cached copy first.
+indefinitely, because the service worker serves its cached copy first. This is the most
+likely reason a deploy "did nothing".
 
 ## Backups
 
-Fly takes daily volume snapshots (5-day retention) automatically. That is a floor, not a
-plan. For anything you would mind losing:
+Three layers, in the order you will actually rely on them:
+
+**1. The user's own export.** Summary tab → Export backup writes a JSON file the person
+keeps. Every account also keeps a full copy in the browser and works offline from it.
+For a single user this is the real safety net, and it needs no infrastructure.
+
+**2. Render disk snapshots.** Render snapshots disks automatically. Check the retention
+on your plan in the dashboard — do not assume it is long.
+
+**3. A consistent file snapshot, before anything risky.** Render → the service → **Shell**:
 
 ```sh
-fly ssh console -C "npm run backup"             # consistent snapshot inside the machine
-fly ssh sftp get /data/backups/fitnesskinda-$(date +%F).db ./
+npm run backup
+# backup written: /var/data/backups/fitnesskinda-YYYY-MM-DD.db
 ```
 
-`npm run backup` uses `VACUUM INTO`, so it is safe while the app is running — a plain
-copy of a live WAL database can be torn. It keeps the last 14 daily files.
+This uses `VACUUM INTO`, so it is safe while the app is running — a plain copy of a live
+WAL database can be torn. It keeps the last 14 daily files.
 
-**Restore:**
-
-```sh
-fly scale count 0                               # stop writes first
-fly ssh sftp shell                              # put the file back as /data/fitnesskinda.db
-fly scale count 1
-```
-
-Users also hold their own copy: every account keeps working offline from localStorage,
-and the Summary tab exports JSON. That is the real safety net for a single user.
+Note the honest limit: that snapshot is on the **same disk** as the original. It protects
+against a bad migration or a logical mistake, not against losing the disk. Getting a file
+off a Render instance is awkward, so off-machine backup is not solved here — layer 1 is.
 
 ## Admin
 
-`/admin` is granted by the `ADMIN_EMAILS` secret, never from inside the app. The role is
-applied at sign-up and re-checked at every login, so:
-
-```sh
-fly secrets set ADMIN_EMAILS=you@example.com    # triggers a restart
-```
-
-then sign in with that address and open `https://fitnesskinda.fit/admin`.
+`/admin` is granted by the `ADMIN_EMAILS` environment variable, never from inside the
+app. The role is applied at sign-up and re-checked at every login. Change it in Render →
+**Environment**, which restarts the service, then sign in with that address.
 
 ## Rollback
 
-```sh
-fly releases                                    # find the previous version
-fly deploy --image <image-ref-from-releases>
-```
-
-The volume is untouched by a rollback. Only the code goes back.
+Render → **Events** → pick the previous successful deploy → **Rollback**. The disk is
+untouched; only the code goes back.
 
 ## When something is wrong
 
 | Symptom | Cause |
 |---|---|
-| Writes fail with 403 | `ALLOWED_ORIGINS` in `fly.toml` does not match the address in the browser |
+| Records vanished after a deploy | The service is on a free plan with no disk |
+| Writes fail with 403 | `ALLOWED_ORIGINS` does not match the address in the browser (`www` vs apex) |
 | Signed out constantly | Cookies are `Secure` in production — the site must be on HTTPS |
-| First request is slow | The machine sleeps when idle; it wakes in a second or two |
 | Old version after deploy | `CACHE` in `sw.js` was not bumped |
-| Deploy fails on the volume | A second machine exists — `fly scale count 1` |
+| Build fails on Node version | `NODE_VERSION` must be 22.5 or newer; `node:sqlite` does not exist before that |
 | `/admin` refuses you | The signed-in email is not in `ADMIN_EMAILS` |
+| First request slow | Expected on Starter after idle; it is not a cold start from zero |
 
-Logs: `fly logs`. They carry method, route pattern and status only — never request
+Logs: Render → **Logs**. They carry method, route pattern and status only — never request
 bodies, symptoms, notes or email addresses.
 
 ## Not covered yet
 
-- No automated off-machine backup. The snapshot above is manual.
-- No staging environment. Deploys go straight to the one people use.
+- No automated off-machine backup (see Backups, layer 3).
+- No staging environment. `main` deploys straight to the site people use.
 - No password reset, so a lost password means a lost account.
-- One machine in one region. A Fly region outage is an outage.
+- One instance in one region. A region outage is an outage.
+- Brief downtime on every deploy, because the service has a disk.
 
 These are prototype limits, not oversights. Fix them when there is more than one user.

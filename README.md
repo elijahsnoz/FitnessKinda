@@ -163,10 +163,11 @@ Back up by copying the SQLite file (stop the process first, or use `sqlite3 .bac
 
 ## Deployment
 
-Runs on Fly.io: one machine, one volume, SQLite on disk. **Full runbook:
-[docs/deploy.md](docs/deploy.md)** — setup, DNS, backups, rollback.
+Runs on Render: one web service with a **persistent disk** for the SQLite file.
+**Full runbook: [docs/deploy.md](docs/deploy.md)** — blueprint, DNS, backups, rollback.
 
-Any host that runs Node 22 with a persistent disk works the same way: Fly.io, Railway, a VPS.
+The disk is not optional. Without one, Render's filesystem is ephemeral and the database
+is wiped on every deploy. Any host that runs Node 22 with a real disk works the same way.
 Serverless platforms will not work as-is, because SQLite needs a real filesystem.
 
 1. Set the environment (see `.env.example`): `NODE_ENV=production`, `DATA_DIR` pointing
