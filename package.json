@@ -1,0 +1,16 @@
+{
+  "name": "fitnesskinda",
+  "version": "0.2.0",
+  "private": true,
+  "description": "FitnessKinda \u2014 a personal health memory and pattern tracker. Malaria first.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "start": "node server/start.js",
+    "dev": "node --watch server/start.js",
+    "test": "node tests/run.mjs",
+    "test:browser": "node tests/browser.mjs"
+  }
+}
