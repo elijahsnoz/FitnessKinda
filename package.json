@@ -5,13 +5,17 @@
   "description": "FitnessKinda \u2014 a personal health memory and pattern tracker. Malaria first.",
   "type": "module",
   "engines": {
-    "node": ">=22.5"
+    "node": "22.x"
   },
   "scripts": {
     "start": "node server/start.js",
     "dev": "node --watch server/start.js",
     "test": "node tests/run.mjs",
     "test:browser": "node tests/browser.mjs",
-    "backup": "node scripts/backup.mjs"
+    "backup": "node scripts/backup.mjs",
+    "restore": "node scripts/restore.mjs"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0"
   }
 }

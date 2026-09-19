@@ -1,41 +1,44 @@
-/* Consistent SQLite snapshot.
+/* Backup: dumps every table to a JSON file.
  *
- * A plain file copy of a live WAL database can be torn. VACUUM INTO writes a
- * complete, consistent copy while the app keeps running, with no extra tooling.
+ * VACUUM INTO only works against a local file, and in production the database is
+ * a Turso instance reached over HTTP — so the portable form is a dump. The output
+ * restores with scripts/restore.mjs and can be read by anything.
  *
- *   npm run backup                 → DATA_DIR/backups/fitnesskinda-YYYY-MM-DD.db
+ *   npm run backup                 → ./backups/fitnesskinda-YYYY-MM-DD.json
  *   npm run backup -- /some/path   → that path
  */
 
-import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync, statSync, readdirSync, unlinkSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { writeFileSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'node:fs';
+import { join, dirname, resolve } from 'node:path';
+import { openDatabase, all, closeDatabase, databaseUrl } from '../server/db.js';
 
-const dataDir = resolve(process.env.DATA_DIR || './data');
-const source = join(dataDir, 'fitnesskinda.db');
+const TABLES = ['schema_migrations', 'users', 'health_entries', 'sessions'];
 const keep = Number(process.env.BACKUP_KEEP || 14);
 
 const day = new Date().toISOString().slice(0, 10);
-const target = process.argv[2] || join(dataDir, 'backups', `fitnesskinda-${day}.db`);
+const target = resolve(process.argv[2] || join('backups', `fitnesskinda-${day}.json`));
 
-mkdirSync(join(target, '..'), { recursive: true });
+await openDatabase();
 
-const db = new DatabaseSync(source, { readOnly: true });
-try {
-  // VACUUM INTO refuses to overwrite, so a same-day rerun replaces cleanly.
-  try { unlinkSync(target); } catch { /* not there yet */ }
-  db.exec(`VACUUM INTO '${target.replace(/'/g, "''")}'`);
-} finally {
-  db.close();
+const dump = { app: 'fitnesskinda', takenAt: new Date().toISOString(), tables: {} };
+for (const table of TABLES) {
+  dump.tables[table] = (await all(`SELECT * FROM ${table}`)).map((row) => ({ ...row }));
 }
+closeDatabase();
 
-const size = (statSync(target).size / 1024).toFixed(0);
-console.log(`backup written: ${target} (${size} KB)`);
+mkdirSync(dirname(target), { recursive: true });
+writeFileSync(target, JSON.stringify(dump, null, 2));
 
-// Keep the last N daily files; anything older is the volume snapshot's problem.
-const dir = join(target, '..');
-const old = readdirSync(dir)
-  .filter((f) => /^fitnesskinda-\d{4}-\d{2}-\d{2}\.db$/.test(f))
+const counts = TABLES.map((t) => `${t} ${dump.tables[t].length}`).join(', ');
+console.log(`backup written: ${target} (${(statSync(target).size / 1024).toFixed(0)} KB)`);
+console.log(`  source: ${databaseUrl().url.replace(/\?.*$/, '')}`);
+console.log(`  rows:   ${counts}`);
+console.log('  note:   password hashes and session tokens are in this file — keep it somewhere safe.');
+
+// Keep the last N dated dumps in the same directory.
+const dir = dirname(target);
+readdirSync(dir)
+  .filter((f) => /^fitnesskinda-\d{4}-\d{2}-\d{2}\.json$/.test(f))
   .sort()
-  .slice(0, -keep);
-old.forEach((f) => { unlinkSync(join(dir, f)); console.log(`removed old backup: ${f}`); });
+  .slice(0, -keep)
+  .forEach((f) => { unlinkSync(join(dir, f)); console.log(`  removed old backup: ${f}`); });

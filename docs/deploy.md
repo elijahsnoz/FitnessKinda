@@ -1,70 +1,79 @@
 # Deploying fitnesskinda.fit
 
-Host: **Render** — one web service, one persistent disk, SQLite on that disk.
-Config lives in `render.yaml`. Domain: Namecheap.
+Host: **Vercel**. Database: **Turso** (hosted libSQL — SQLite over HTTP).
+Config lives in `vercel.json`. Domain: Namecheap.
 
-Health records live on that disk. **Read Backups before you need it.**
+Vercel is serverless, so there is no disk to keep a database file on. That is the only
+reason the data lives in Turso rather than in a local SQLite file — the SQL, the schema
+and the migrations are unchanged, and running locally still uses a plain file.
 
 ---
 
-## The one constraint that matters
+## Environment
 
-Render's filesystem is **ephemeral without a disk**. On a free instance the database is
-wiped on every deploy, every restart and every idle spin-down — silently, with no error.
+| Variable | Where | Value |
+|---|---|---|
+| `TURSO_DATABASE_URL` | Vercel | `libsql://…` from Turso |
+| `TURSO_AUTH_TOKEN` | Vercel | a Turso token — **secret** |
+| `ALLOWED_ORIGINS` | Vercel | `https://fitnesskinda.fit` |
+| `ADMIN_EMAILS` | Vercel | who may open `/admin` |
+| `ACCESS_LOG` | Vercel | `1` to log method, route and status |
+| `NODE_ENV` | — | Vercel sets `production` itself, which marks the cookie `Secure` |
 
-A disk requires a paid instance. `render.yaml` sets `plan: starter` for that reason.
-Roughly $7/month for the instance plus about $0.25/GB/month for the disk. **Do not
-downgrade the plan to free.** If cost is the problem, the alternative is moving the data
-layer to a hosted Postgres — a real code change, not a setting.
+Locally, leave `TURSO_DATABASE_URL` unset and the app uses `data/fitnesskinda.db`.
 
-Two more consequences of having a disk, both expected:
-
-- Deploys are not zero-downtime. Render stops the old instance before starting the new
-  one, so there are a few seconds of downtime on each deploy.
-- The service cannot run more than one instance.
-
-## First deploy
-
-The blueprint in `render.yaml` describes everything except the secret.
-
-1. Render dashboard → **New** → **Blueprint** → connect `elijahsnoz/FitnessKinda`,
-   branch `main`. Render reads `render.yaml` and proposes the service and the disk.
-2. When it asks for `ADMIN_EMAILS` (marked `sync: false`), enter the address that should
-   be able to open `/admin`. It is not in the repo because the repo is public.
-3. Apply. The first build takes a couple of minutes.
-4. Check it before touching DNS:
+## 1. The database
 
 ```sh
-curl https://fitnesskinda.onrender.com/api/health
+brew install tursodatabase/tap/turso
+turso auth signup
+
+turso db create fitnesskinda --location fra     # keep this near the Vercel region
+turso db show fitnesskinda --url                # → TURSO_DATABASE_URL
+turso db tokens create fitnesskinda             # → TURSO_AUTH_TOKEN
+```
+
+`fra` (Frankfurt) matches `"regions": ["fra1"]` in `vercel.json`. **Keep them together.**
+Every request makes several database round trips, so a function in one continent talking
+to a database in another is slow for no reason. Change both or neither.
+
+The schema is created automatically on the first request after a deploy — migrations run
+inside `openDatabase()`. There is no separate migration step.
+
+## 2. Vercel
+
+1. Vercel → **Add New** → **Project** → import `elijahsnoz/FitnessKinda`.
+2. Framework preset: **Other**. No build command, no output directory — the frontend is
+   served as static files exactly as it sits in the repo.
+3. Add the environment variables from the table above, for **Production** (and Preview if
+   you want previews to work — point them at a *separate* Turso database, never the real one).
+4. Deploy, then check:
+
+```sh
+curl https://<your-deployment>.vercel.app/api/health
 # {"status":"ok","database":"ok","time":"..."}
 ```
 
-If that returns ok, the app and the disk are both working.
+If `database` says `error`, the Turso URL or token is wrong. That is the usual first failure.
 
-## Domain
+## 3. Domain
 
-1. Render → the service → **Settings** → **Custom Domains** → add `fitnesskinda.fit`
-   and `www.fitnesskinda.fit`.
-2. Render then shows **the exact DNS records to create**. Use those values — the apex
-   target is Render's and it is the one they display for your service, not a value to
-   copy from anywhere else.
+1. Vercel → the project → **Settings** → **Domains** → add `fitnesskinda.fit` and
+   `www.fitnesskinda.fit`.
+2. Vercel displays **the exact DNS records to create**. Use those values.
 3. Namecheap → Domain List → fitnesskinda.fit → **Advanced DNS**:
-   - Apex (`@`): the A or ALIAS record Render gives you. Namecheap supports `ALIAS
-     Record`, which is the better choice if Render offers an ALIAS/ANAME target, because
-     it survives an IP change.
-   - `www`: `CNAME` → the `onrender.com` hostname Render shows.
-   - **Delete Namecheap's parking record** (the one pointing at `162.255.119.32`) and any
-     URL-redirect record, or they will fight the new ones.
-4. Back in Render, the domain shows **Verified** once DNS propagates, and the TLS
-   certificate is issued automatically a few minutes later.
+   - Apex (`@`): the `A` record Vercel gives you.
+   - `www`: `CNAME` → the target Vercel gives you.
+   - **Delete Namecheap's parking record** (pointing at `162.255.119.32`) and any URL
+     redirect record, or they will fight the new ones.
+4. TLS is issued automatically once DNS resolves.
 
-`ALLOWED_ORIGINS` in `render.yaml` is already `https://fitnesskinda.fit`. If you serve
-the site from `www` as well, add it there, comma-separated, or writes from `www` will be
-refused with 403.
+If you serve the site from `www` as well as the apex, add both to `ALLOWED_ORIGINS`,
+comma-separated — otherwise writes from the other one are refused with 403.
 
-## Routine deploys
+## 4. Routine deploys
 
-`autoDeploy: true`, so pushing to `main` deploys.
+Pushing to `main` deploys.
 
 ```sh
 git push
@@ -73,65 +82,70 @@ git push
 **Bump `CACHE` in `sw.js` whenever a shell file changes** — `index.html`, `styles.css`,
 anything under `js/`, `admin.html`. Skip it and returning visitors keep the old app
 indefinitely, because the service worker serves its cached copy first. This is the most
-likely reason a deploy "did nothing".
+likely reason a deploy appears to do nothing.
 
 ## Backups
 
-Three layers, in the order you will actually rely on them:
-
-**1. The user's own export.** Summary tab → Export backup writes a JSON file the person
-keeps. Every account also keeps a full copy in the browser and works offline from it.
-For a single user this is the real safety net, and it needs no infrastructure.
-
-**2. Render disk snapshots.** Render snapshots disks automatically. Check the retention
-on your plan in the dashboard — do not assume it is long.
-
-**3. A consistent file snapshot, before anything risky.** Render → the service → **Shell**:
-
 ```sh
-npm run backup
-# backup written: /var/data/backups/fitnesskinda-YYYY-MM-DD.db
+TURSO_DATABASE_URL=… TURSO_AUTH_TOKEN=… npm run backup
+# → backups/fitnesskinda-YYYY-MM-DD.json
 ```
 
-This uses `VACUUM INTO`, so it is safe while the app is running — a plain copy of a live
-WAL database can be torn. It keeps the last 14 daily files.
+Dumps every table to JSON. Keeps the last 14 dated files. **The dump contains password
+hashes and session tokens — treat the file as sensitive.** `backups/` is gitignored.
 
-Note the honest limit: that snapshot is on the **same disk** as the original. It protects
-against a bad migration or a logical mistake, not against losing the disk. Getting a file
-off a Render instance is awkward, so off-machine backup is not solved here — layer 1 is.
+Restore into an empty database:
+
+```sh
+TURSO_DATABASE_URL=… TURSO_AUTH_TOKEN=… node scripts/restore.mjs backups/fitnesskinda-2026-09-20.json
+```
+
+It refuses to run against a database that already has users unless you pass `--force`, so
+a restore cannot quietly overwrite a live record.
+
+Turso also keeps its own point-in-time history; check the retention on your plan. And the
+user's own copy remains the best safety net for a single person: the app works offline
+from localStorage, and the Summary tab exports JSON.
 
 ## Admin
 
-`/admin` is granted by the `ADMIN_EMAILS` environment variable, never from inside the
-app. The role is applied at sign-up and re-checked at every login. Change it in Render →
-**Environment**, which restarts the service, then sign in with that address.
+`/admin` is granted by `ADMIN_EMAILS`, never from inside the app. The role is applied at
+sign-up and re-checked at every login. Change the variable in Vercel → Settings →
+Environment Variables, redeploy, then sign in with that address.
 
-## Rollback
+## Local development
 
-Render → **Events** → pick the previous successful deploy → **Rollback**. The disk is
-untouched; only the code goes back.
+```sh
+npm install
+npm run dev            # http://localhost:3000, data in ./data
+npm test               # 131 checks
+npm run test:browser   # 51 checks, needs Chrome
+```
+
+`server/start.js` runs the same request handler that `api/[...path].js` hands to Vercel,
+so local and production are the same code with a different entry point.
 
 ## When something is wrong
 
 | Symptom | Cause |
 |---|---|
-| Records vanished after a deploy | The service is on a free plan with no disk |
+| `/api/health` says `database: error` | `TURSO_DATABASE_URL` or `TURSO_AUTH_TOKEN` wrong or missing |
 | Writes fail with 403 | `ALLOWED_ORIGINS` does not match the address in the browser (`www` vs apex) |
 | Signed out constantly | Cookies are `Secure` in production — the site must be on HTTPS |
 | Old version after deploy | `CACHE` in `sw.js` was not bumped |
-| Build fails on Node version | `NODE_VERSION` must be 22.5 or newer; `node:sqlite` does not exist before that |
+| Everything is slow | The Turso location and the Vercel region are not the same |
+| First request after idle is slow | Serverless cold start plus the first database connection |
 | `/admin` refuses you | The signed-in email is not in `ADMIN_EMAILS` |
-| First request slow | Expected on Starter after idle; it is not a cold start from zero |
+| Preview deploys mutate real data | Preview env points at the production database — give it its own |
 
-Logs: Render → **Logs**. They carry method, route pattern and status only — never request
-bodies, symptoms, notes or email addresses.
+Logs: Vercel → the project → **Logs**. They carry method, route pattern and status only —
+never request bodies, symptoms, notes or email addresses.
 
 ## Not covered yet
 
-- No automated off-machine backup (see Backups, layer 3).
+- Backups are manual. Nothing runs them on a schedule.
 - No staging environment. `main` deploys straight to the site people use.
 - No password reset, so a lost password means a lost account.
-- One instance in one region. A region outage is an outage.
-- Brief downtime on every deploy, because the service has a disk.
+- The dump file contains password hashes; there is no encryption around it.
 
 These are prototype limits, not oversights. Fix them when there is more than one user.

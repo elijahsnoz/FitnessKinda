@@ -24,7 +24,7 @@ export const routes = [
     method: 'GET',
     path: '/api/health',
     auth: false,
-    handler: () => ok({ status: 'ok', database: dbStatus().ok ? 'ok' : 'error', time: new Date().toISOString() })
+    handler: async () => ok({ status: 'ok', database: (await dbStatus()).ok ? 'ok' : 'error', time: new Date().toISOString() })
   },
 
   /* ── Accounts ── */
@@ -32,11 +32,11 @@ export const routes = [
     method: 'POST',
     path: '/api/auth/signup',
     auth: false,
-    handler: ({ body, ip }) => {
+    handler: async ({ body, ip }) => {
       auth.throttle(`signup:${ip}`, { limit: 10, windowMs: 60 * 60 * 1000 });
       const creds = validateCredentials(body, { requireName: true });
-      const user = auth.createUser(creds);
-      const { token, expires } = auth.createSession(user.id);
+      const user = await auth.createUser(creds);
+      const { token, expires } = await auth.createSession(user.id);
       return ok({ user }, { cookie: auth.sessionCookie(token, expires) });
     }
   },
@@ -44,11 +44,11 @@ export const routes = [
     method: 'POST',
     path: '/api/auth/login',
     auth: false,
-    handler: ({ body, ip }) => {
+    handler: async ({ body, ip }) => {
       auth.throttle(`login:${ip}`);
-      const user = auth.authenticate(body?.email, body?.password);
+      const user = await auth.authenticate(body?.email, body?.password);
       auth.resetThrottle(`login:${ip}`);
-      const { token, expires } = auth.createSession(user.id);
+      const { token, expires } = await auth.createSession(user.id);
       return ok({ user }, { cookie: auth.sessionCookie(token, expires) });
     }
   },
@@ -56,8 +56,8 @@ export const routes = [
     method: 'POST',
     path: '/api/auth/logout',
     auth: false,
-    handler: ({ token }) => {
-      auth.destroySession(token);
+    handler: async ({ token }) => {
+      await auth.destroySession(token);
       return ok({ ok: true }, { cookie: auth.clearCookie() });
     }
   },
@@ -73,24 +73,24 @@ export const routes = [
     method: 'GET',
     path: '/api/episodes',
     auth: true,
-    handler: ({ user, query }) => {
+    handler: async ({ user, query }) => {
       const type = query.get('type');
       if (type && !DOMAINS.some((d) => d.type === type)) throw badRequest('Unknown type.');
-      return ok({ episodes: repo.listEntries(user.id, type || undefined) });
+      return ok({ episodes: await repo.listEntries(user.id, type || undefined) });
     }
   },
   {
     method: 'POST',
     path: '/api/episodes',
     auth: true,
-    handler: ({ user, body }) => ({ status: 201, body: { episode: repo.createEntry(user.id, body) } })
+    handler: async ({ user, body }) => ({ status: 201, body: { episode: await repo.createEntry(user.id, body) } })
   },
   {
     method: 'GET',
     path: '/api/episodes/:id',
     auth: true,
-    handler: ({ user, params }) => {
-      const episode = repo.getEntry(user.id, params.id);
+    handler: async ({ user, params }) => {
+      const episode = await repo.getEntry(user.id, params.id);
       if (!episode) throw notFound('That episode is not in your record.');
       return ok({ episode });
     }
@@ -99,14 +99,14 @@ export const routes = [
     method: 'PATCH',
     path: '/api/episodes/:id',
     auth: true,
-    handler: ({ user, params, body }) => ok({ episode: repo.updateEntry(user.id, params.id, body) })
+    handler: async ({ user, params, body }) => ok({ episode: await repo.updateEntry(user.id, params.id, body) })
   },
   {
     method: 'DELETE',
     path: '/api/episodes/:id',
     auth: true,
-    handler: ({ user, params }) => {
-      repo.deleteEntry(user.id, params.id);
+    handler: async ({ user, params }) => {
+      await repo.deleteEntry(user.id, params.id);
       return ok({ ok: true });
     }
   },
@@ -116,8 +116,8 @@ export const routes = [
     method: 'GET',
     path: '/api/summary',
     auth: true,
-    handler: ({ user }) => {
-      const entries = repo.listEntries(user.id);
+    handler: async ({ user }) => {
+      const entries = await repo.listEntries(user.id);
       return ok({ summary: summaryText(dbSource(entries)), episodes: entries.length });
     }
   },
@@ -127,13 +127,13 @@ export const routes = [
     method: 'POST',
     path: '/api/migrate',
     auth: true,
-    handler: ({ user, body }) => {
+    handler: async ({ user, body }) => {
       const entries = Array.isArray(body?.entries) ? body.entries : null;
       if (!entries) throw badRequest('Expected { entries: [...] }.');
       if (entries.length > 2000) throw badRequest('That is more entries than this prototype imports at once.');
       // All or nothing — a rejected entry leaves the account untouched.
-      const report = repo.importEntries(user.id, entries);
-      return ok({ ...report, total: repo.countEntries(user.id) });
+      const report = await repo.importEntries(user.id, entries);
+      return ok({ ...report, total: await repo.countEntries(user.id) });
     }
   },
 
@@ -142,9 +142,9 @@ export const routes = [
     method: 'GET',
     path: '/api/admin/metrics',
     auth: true,
-    handler: ({ user }) => {
+    handler: async ({ user }) => {
       if (user.role !== 'admin') throw forbidden('Admin access only.');
-      return ok(adminMetrics());
+      return ok(await adminMetrics());
     }
   }
 ];

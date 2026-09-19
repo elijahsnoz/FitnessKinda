@@ -46,7 +46,7 @@ export async function startTestServer() {
   const { resetAllThrottles } = await import('../server/auth.js');
 
   closeDatabase();
-  openDatabase(':memory:');
+  await openDatabase(':memory:');
   resetAllThrottles();
 
   const server = createApp();

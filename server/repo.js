@@ -2,11 +2,18 @@
  *
  * Every statement is scoped by userId — ownership is enforced here, at the data
  * layer, so a route that forgets to check cannot leak another person's record.
+ *
+ * Functions take a query interface `q` so the same code runs against the normal
+ * connection or inside a transaction. That matters: the bulk import must do its
+ * inserts through the transaction, or a failure would leave half a record behind.
  */
 
-import { getDb, transaction } from './db.js';
+import { all, get, run, count as countQuery, transaction } from './db.js';
 import { uid, nowISO, notFound } from './util.js';
 import { validateEntry } from './validate.js';
+
+/** The plain, non-transactional query interface. */
+const conn = { all, get, run };
 
 const toEntry = (row) =>
   row && {
@@ -21,69 +28,65 @@ const toEntry = (row) =>
     updatedAt: row.updatedAt
   };
 
-export function listEntries(userId, type) {
-  const db = getDb();
+export async function listEntries(userId, type) {
   const rows = type
-    ? db.prepare('SELECT * FROM health_entries WHERE userId = ? AND type = ? ORDER BY startDate, createdAt').all(userId, type)
-    : db.prepare('SELECT * FROM health_entries WHERE userId = ? ORDER BY startDate, createdAt').all(userId);
+    ? await conn.all('SELECT * FROM health_entries WHERE userId = ? AND type = ? ORDER BY startDate, createdAt', [userId, type])
+    : await conn.all('SELECT * FROM health_entries WHERE userId = ? ORDER BY startDate, createdAt', [userId]);
   return rows.map(toEntry);
 }
 
-export function getEntry(userId, id) {
-  return toEntry(getDb().prepare('SELECT * FROM health_entries WHERE userId = ? AND id = ?').get(userId, id)) || null;
+async function readEntry(q, userId, id) {
+  return toEntry(await q.get('SELECT * FROM health_entries WHERE userId = ? AND id = ?', [userId, id])) || null;
 }
 
-function insert(userId, body, { id, createdAt } = {}) {
-  const now = nowISO();
-  const entry = {
-    id: id || uid(),
-    userId,
-    ...body,
-    createdAt: createdAt || now,
-    updatedAt: now
-  };
-  getDb()
-    .prepare(
-      `INSERT INTO health_entries (id, userId, type, startDate, endDate, data, context, tags, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
-      entry.id, userId, entry.type, entry.startDate, entry.endDate,
-      JSON.stringify(entry.data), JSON.stringify(entry.context), JSON.stringify(entry.tags),
-      entry.createdAt, entry.updatedAt
-    );
-  return getEntry(userId, entry.id);
-}
+export const getEntry = (userId, id) => readEntry(conn, userId, id);
 
-export function createEntry(userId, payload) {
+async function insertEntry(q, userId, payload) {
   const body = validateEntry(payload);
+
   // A client may propose its own id (it had one offline); only accept an unused one.
   const proposed = typeof payload.id === 'string' && /^[\w-]{1,64}$/.test(payload.id) ? payload.id : null;
-  const free = proposed && !getDb().prepare('SELECT 1 FROM health_entries WHERE id = ?').get(proposed);
-  return insert(userId, body, { id: free ? proposed : null, createdAt: payload.createdAt });
+  const taken = proposed ? await q.get('SELECT 1 FROM health_entries WHERE id = ?', [proposed]) : null;
+  const id = proposed && !taken ? proposed : uid();
+
+  const now = nowISO();
+  await q.run(
+    `INSERT INTO health_entries (id, userId, type, startDate, endDate, data, context, tags, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id, userId, body.type, body.startDate, body.endDate,
+      JSON.stringify(body.data), JSON.stringify(body.context), JSON.stringify(body.tags),
+      typeof payload.createdAt === 'string' ? payload.createdAt : now, now
+    ]
+  );
+  return id;
 }
 
-export function updateEntry(userId, id, payload) {
-  const existing = getEntry(userId, id);
+export async function createEntry(userId, payload) {
+  const id = await insertEntry(conn, userId, payload);
+  return readEntry(conn, userId, id);
+}
+
+export async function updateEntry(userId, id, payload) {
+  const existing = await readEntry(conn, userId, id);
   if (!existing) throw notFound('That episode is not in your record.');
 
   const body = validateEntry(payload, { partial: true, existing });
-  getDb()
-    .prepare(
-      `UPDATE health_entries
-          SET type = ?, startDate = ?, endDate = ?, data = ?, context = ?, tags = ?, updatedAt = ?
-        WHERE userId = ? AND id = ?`
-    )
-    .run(
+  await conn.run(
+    `UPDATE health_entries
+        SET type = ?, startDate = ?, endDate = ?, data = ?, context = ?, tags = ?, updatedAt = ?
+      WHERE userId = ? AND id = ?`,
+    [
       body.type, body.startDate, body.endDate,
       JSON.stringify(body.data), JSON.stringify(body.context), JSON.stringify(body.tags),
       nowISO(), userId, id
-    );
-  return getEntry(userId, id);
+    ]
+  );
+  return readEntry(conn, userId, id);
 }
 
-export function deleteEntry(userId, id) {
-  const result = getDb().prepare('DELETE FROM health_entries WHERE userId = ? AND id = ?').run(userId, id);
+export async function deleteEntry(userId, id) {
+  const result = await conn.run('DELETE FROM health_entries WHERE userId = ? AND id = ?', [userId, id]);
   if (!result.changes) throw notFound('That episode is not in your record.');
   return true;
 }
@@ -93,33 +96,33 @@ export function deleteEntry(userId, id) {
  * the transaction rolls back and the account is left exactly as it was, so the
  * device copy stays the only source of truth.
  */
-export function importEntries(userId, entries) {
+export async function importEntries(userId, entries) {
   if (!Array.isArray(entries)) throw new TypeError('entries must be an array');
 
-  return transaction(() => {
+  return transaction(async (tx) => {
     const report = { imported: 0, skipped: 0, ids: [] };
-    const seen = getDb().prepare('SELECT id FROM health_entries WHERE userId = ?').all(userId).map((r) => r.id);
-    const existing = new Set(seen);
+    const seen = await tx.all('SELECT id FROM health_entries WHERE userId = ?', [userId]);
+    const existing = new Set(seen.map((r) => r.id));
 
-    entries.forEach((raw, index) => {
+    for (const [index, raw] of entries.entries()) {
       // Already imported once — importing again must not duplicate the record.
       if (raw && typeof raw.id === 'string' && existing.has(raw.id)) {
         report.skipped += 1;
-        return;
+        continue;
       }
       try {
-        const saved = createEntry(userId, raw);
+        const id = await insertEntry(tx, userId, raw);
         report.imported += 1;
-        report.ids.push(saved.id);
-        existing.add(saved.id);
+        report.ids.push(id);
+        existing.add(id);
       } catch (err) {
         err.message = `Entry ${index + 1} (${raw?.startDate || 'no date'}): ${err.message}`;
         throw err;
       }
-    });
+    }
     return report;
   });
 }
 
 export const countEntries = (userId) =>
-  getDb().prepare('SELECT COUNT(*) AS n FROM health_entries WHERE userId = ?').get(userId).n;
+  countQuery('SELECT COUNT(*) FROM health_entries WHERE userId = ?', [userId]);

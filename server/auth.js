@@ -7,7 +7,7 @@
  */
 
 import { scryptSync, randomBytes, timingSafeEqual, createHash } from 'node:crypto';
-import { getDb } from './db.js';
+import { all, get, run, count } from './db.js';
 import { config } from './config.js';
 import { uid, nowISO, badRequest, unauthorised } from './util.js';
 
@@ -39,9 +39,8 @@ export function verifyPassword(password, stored) {
 const publicUser = (row) =>
   row && { id: row.id, email: row.email, name: row.name, role: row.role, createdAt: row.createdAt, updatedAt: row.updatedAt };
 
-export function createUser({ email, name, password }) {
-  const db = getDb();
-  if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) {
+export async function createUser({ email, name, password }) {
+  if (await get('SELECT 1 FROM users WHERE email = ?', [email])) {
     throw badRequest('An account with that email already exists.');
   }
   const now = nowISO();
@@ -54,14 +53,15 @@ export function createUser({ email, name, password }) {
     createdAt: now,
     updatedAt: now
   };
-  db.prepare(
-    'INSERT INTO users (id, email, name, passwordHash, role, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(user.id, user.email, user.name, user.passwordHash, user.role, user.createdAt, user.updatedAt);
+  await run(
+    'INSERT INTO users (id, email, name, passwordHash, role, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [user.id, user.email, user.name, user.passwordHash, user.role, user.createdAt, user.updatedAt]
+  );
   return publicUser(user);
 }
 
-export function authenticate(email, password) {
-  const row = getDb().prepare('SELECT * FROM users WHERE email = ?').get(String(email || '').trim().toLowerCase());
+export async function authenticate(email, password) {
+  const row = await get('SELECT * FROM users WHERE email = ?', [String(email || '').trim().toLowerCase()]);
   // Always spend the time hashing, so a missing account is not faster than a wrong password.
   const ok = row ? verifyPassword(password, row.passwordHash) : verifyPassword(password, hashPassword('decoy'));
   if (!row || !ok) throw unauthorised('Email or password is not right.');
@@ -69,44 +69,45 @@ export function authenticate(email, password) {
   // Admin membership is re-read from the environment on every login.
   const role = config.adminEmails.includes(row.email) ? 'admin' : 'user';
   if (role !== row.role) {
-    getDb().prepare('UPDATE users SET role = ?, updatedAt = ? WHERE id = ?').run(role, nowISO(), row.id);
+    await run('UPDATE users SET role = ?, updatedAt = ? WHERE id = ?', [role, nowISO(), row.id]);
     row.role = role;
   }
   return publicUser(row);
 }
 
-export const findUser = (id) => publicUser(getDb().prepare('SELECT * FROM users WHERE id = ?').get(id));
+export const findUser = async (id) => publicUser(await get('SELECT * FROM users WHERE id = ?', [id]));
 
 /* ── Sessions ──────────────────────────────────────────────────── */
 
 const hashToken = (token) => createHash('sha256').update(token).digest('hex');
 
-export function createSession(userId) {
+export async function createSession(userId) {
   const token = randomBytes(32).toString('base64url');
   const expires = new Date(Date.now() + config.sessionDays * 86400000);
-  getDb()
-    .prepare('INSERT INTO sessions (tokenHash, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)')
-    .run(hashToken(token), userId, nowISO(), expires.toISOString());
+  await run(
+    'INSERT INTO sessions (tokenHash, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)',
+    [hashToken(token), userId, nowISO(), expires.toISOString()]
+  );
   return { token, expires };
 }
 
-export function destroySession(token) {
-  if (token) getDb().prepare('DELETE FROM sessions WHERE tokenHash = ?').run(hashToken(token));
+export async function destroySession(token) {
+  if (token) await run('DELETE FROM sessions WHERE tokenHash = ?', [hashToken(token)]);
 }
 
-export function userForToken(token) {
+export async function userForToken(token) {
   if (!token) return null;
-  const row = getDb().prepare('SELECT * FROM sessions WHERE tokenHash = ?').get(hashToken(token));
+  const row = await get('SELECT * FROM sessions WHERE tokenHash = ?', [hashToken(token)]);
   if (!row) return null;
   if (new Date(row.expiresAt) < new Date()) {
-    getDb().prepare('DELETE FROM sessions WHERE tokenHash = ?').run(row.tokenHash);
+    await run('DELETE FROM sessions WHERE tokenHash = ?', [row.tokenHash]);
     return null;
   }
   return findUser(row.userId);
 }
 
-export function purgeExpiredSessions() {
-  return getDb().prepare('DELETE FROM sessions WHERE expiresAt < ?').run(nowISO()).changes;
+export async function purgeExpiredSessions() {
+  return (await run('DELETE FROM sessions WHERE expiresAt < ?', [nowISO()])).changes;
 }
 
 /* ── Cookies ───────────────────────────────────────────────────── */

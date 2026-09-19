@@ -8,8 +8,15 @@ export const config = {
   port: Number(env.PORT || 3000),
   host: env.HOST || '0.0.0.0',
 
-  // Where the SQLite file lives. On a host with a mounted volume, point this at it.
+  // Where the SQLite file lives when running against a local file.
   dataDir: resolve(env.DATA_DIR || './data'),
+
+  /* The database. On Vercel this is a Turso URL; locally it is a plain file, and
+   * the same client speaks to both, so there is one code path either way. */
+  database: {
+    url: env.TURSO_DATABASE_URL || '',
+    authToken: env.TURSO_AUTH_TOKEN || ''
+  },
 
   production: env.NODE_ENV === 'production',
 

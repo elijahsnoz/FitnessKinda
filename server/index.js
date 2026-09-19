@@ -144,7 +144,7 @@ async function handleApi(req, res, url) {
   const { route, params } = match;
   const cookies = parseCookies(req.headers.cookie);
   const token = cookies[COOKIE];
-  const user = token ? userForToken(token) : null;
+  const user = token ? await userForToken(token) : null;
 
   if (req.method !== 'GET' && req.method !== 'HEAD') assertSameOrigin(req);
   if (route.auth && !user) throw new HttpError(401, 'Sign in to continue.');
@@ -166,8 +166,10 @@ async function handleApi(req, res, url) {
   send(res, result.status || 200, result.body, headers);
 }
 
-export function createApp() {
-  return createServer(async (req, res) => {
+/** The whole app as one request handler, so it can run behind node:http locally
+ *  and as a serverless function on Vercel without two copies of the logic. */
+export async function handleRequest(req, res) {
+  {
     const started = Date.now();
     let url;
     try {
@@ -189,7 +191,7 @@ export function createApp() {
       const status = err instanceof HttpError ? err.status : 500;
       // Route pattern only: no ids, no query strings, never a request body.
       const pattern = url.pathname.replace(/\/api\/episodes\/[^/]+/, '/api/episodes/:id');
-      logError(pattern, status, err instanceof HttpError ? 'client' : err.name || 'error');
+      await logError(pattern, status, err instanceof HttpError ? 'client' : err.name || 'error');
       if (status >= 500) console.error(`[error] ${req.method} ${pattern}: ${err.message}`);
       if (!res.headersSent) {
         send(res, status, { error: status >= 500 ? 'Something went wrong.' : err.message }, { 'Cache-Control': 'no-store' });
@@ -200,5 +202,9 @@ export function createApp() {
         console.log(`${req.method} ${pattern} ${res.statusCode} ${Date.now() - started}ms`);
       }
     }
-  });
+  }
+}
+
+export function createApp() {
+  return createServer(handleRequest);
 }

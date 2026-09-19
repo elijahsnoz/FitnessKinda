@@ -19,22 +19,22 @@ An account adds a durable copy in a database.
 
 ## Running it
 
-Needs **Node 22.5+** (for the built-in SQLite driver). No npm dependencies.
+Needs **Node 22**. One dependency: `@libsql/client`.
 
 ```sh
-cp .env.example .env     # optional for local work
-npm start                # http://localhost:3000
-npm run dev              # same, restarting on change
+npm install
+npm run dev              # http://localhost:3000, database in ./data
 ```
 
-The database file is created on first run under `DATA_DIR` (default `./data`).
+With no `TURSO_DATABASE_URL` set, the app uses a local file — no account needed to develop.
 
 ## Tests
 
 ```sh
 npm test               # logic + API + security   (131 checks, no browser needed)
 npm run test:browser   # end-to-end in headless Chrome (51 checks)
-npm run backup         # consistent SQLite snapshot into DATA_DIR/backups
+npm run backup         # dump every table to backups/*.json
+npm run restore -- <file>   # restore a dump into an empty database
 ```
 
 `npm test` runs three suites: the original MVP logic, the API, and a security suite
@@ -65,15 +65,17 @@ js/
   summary.js        the doctor summary (shared with the server)
   domains/
     malaria.js      everything malaria-specific — including its validation rules
+api/
+  [...path].js      Vercel entry: opens the database, then the shared handler
 server/
-  start.js          entry point: version guard, then listen
+  start.js          local entry: opens the database, then listens
   index.js          http server: static files + /api, security headers, CSRF
   routes.js         the API surface
   repo.js           data access, every statement scoped by userId
   auth.js           scrypt passwords, hashed session tokens, cookies, throttling
   validate.js       server-side validation — reuses js/domains/malaria.js
   metrics.js        admin aggregates (counts only)
-  db.js             SQLite schema and migrations
+  db.js             libSQL client, schema and migrations (Turso or a local file)
   config.js         environment
 tests/              logic, api, security, browser, cdp client, harness
 ```
@@ -163,11 +165,12 @@ Back up by copying the SQLite file (stop the process first, or use `sqlite3 .bac
 
 ## Deployment
 
-Runs on Render: one web service with a **persistent disk** for the SQLite file.
-**Full runbook: [docs/deploy.md](docs/deploy.md)** — blueprint, DNS, backups, rollback.
+Runs on **Vercel** with **Turso** (hosted libSQL) for the database.
+**Full runbook: [docs/deploy.md](docs/deploy.md)** — environment, DNS, backups, restore.
 
-The disk is not optional. Without one, Render's filesystem is ephemeral and the database
-is wiped on every deploy. Any host that runs Node 22 with a real disk works the same way.
+Vercel is serverless, so there is no disk for a SQLite file; Turso is SQLite over HTTP, so
+the schema, the SQL and the migrations are identical. Locally the same client reads a plain
+file in `data/`, which means local and production run the same code path.
 Serverless platforms will not work as-is, because SQLite needs a real filesystem.
 
 1. Set the environment (see `.env.example`): `NODE_ENV=production`, `DATA_DIR` pointing

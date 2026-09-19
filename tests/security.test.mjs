@@ -5,7 +5,7 @@ import { suite, startTestServer } from './harness.mjs';
 export default async function run() {
   const { ok, results } = suite('security');
   const server = await startTestServer();
-  const { getDb } = await import('../server/db.js');
+  const { get: dbGet, all: dbAll, run: dbRun, count: dbCount } = await import('../server/db.js');
 
   const alice = server.client();
   const mallory = server.client();
@@ -18,18 +18,18 @@ export default async function run() {
   const aliceId = created.body.episode.id;
 
   /* ── Passwords and sessions at rest ── */
-  const row = getDb().prepare('SELECT * FROM users WHERE email = ?').get('alice@sec.test');
+  const row = await dbGet('SELECT * FROM users WHERE email = ?', ['alice@sec.test']);
   ok(!row.passwordHash.includes('alice-password'), 'the password is not stored in plaintext');
   ok(row.passwordHash.startsWith('scrypt$'), 'passwords are stored as scrypt hashes');
   const cookieToken = alice.cookie.split('=')[1];
-  const sessions = getDb().prepare('SELECT tokenHash FROM sessions').all();
+  const sessions = await dbAll('SELECT tokenHash FROM sessions');
   ok(sessions.length > 0 && !sessions.some((s) => s.tokenHash === cookieToken),
     'the session cookie value is not what is stored — only its hash is');
 
   /* ── Ownership cannot be talked into changing ── */
   let r = await mallory.post('/api/episodes', { startDate: '2026-08-02', userId: row.id, data: {} });
   ok(r.status === 201, 'a userId in the payload is accepted but ignored');
-  ok(getDb().prepare('SELECT userId FROM health_entries WHERE id = ?').get(r.body.episode.id).userId !== row.id,
+  ok((await dbGet('SELECT userId FROM health_entries WHERE id = ?', [r.body.episode.id])).userId !== row.id,
     'a client cannot assign its entry to another user');
 
   r = await mallory.post('/api/episodes', { id: aliceId, startDate: '2026-08-03', data: { notes: 'overwritten' } });
@@ -39,7 +39,7 @@ export default async function run() {
 
   /* ── Roles cannot be self-granted ── */
   r = await mallory.post('/api/auth/signup', { email: 'admin2@sec.test', name: 'X', password: 'password-here', role: 'admin' });
-  const sneaky = getDb().prepare('SELECT role FROM users WHERE email = ?').get('admin2@sec.test');
+  const sneaky = await dbGet('SELECT role FROM users WHERE email = ?', ['admin2@sec.test']);
   ok(!sneaky || sneaky.role === 'user', 'a signup cannot ask for the admin role');
   ok((await mallory.get('/api/admin/metrics')).status === 403, 'a normal account cannot read admin metrics');
 
@@ -61,7 +61,7 @@ export default async function run() {
   /* ── Errors say little ── */
   r = await alice.get('/api/episodes/%27%20OR%201%3D1--');
   ok(r.status === 404 && !/SQL|sqlite|stack|at Object/i.test(r.text), 'a SQL-ish id returns a plain 404 with no internals');
-  ok(getDb().prepare('SELECT COUNT(*) AS n FROM health_entries').get().n > 0, 'the table is still there afterwards');
+  ok((await dbCount('SELECT COUNT(*) FROM health_entries')) > 0, 'the table is still there afterwards');
 
   /* ── Health data never reaches the logs ── */
   const logged = [];
@@ -82,7 +82,7 @@ export default async function run() {
   ok(!logText.includes(aliceId), 'logs carry the route pattern, not entry ids');
 
   /* ── Admin metrics stay aggregate ── */
-  getDb().prepare("UPDATE users SET role = 'admin' WHERE email = 'alice@sec.test'").run();
+  await dbRun("UPDATE users SET role = 'admin' WHERE email = 'alice@sec.test'");
   const metrics = await alice.get('/api/admin/metrics');
   const blob = JSON.stringify(metrics.body);
   ok(!/SECRET-SYMPTOM-NOTE|LOG-LEAK-CANARY|Fever|@sec\.test/.test(blob), 'admin metrics expose no health data and no emails');
@@ -91,7 +91,7 @@ export default async function run() {
   /* ── Sessions end ── */
   await alice.post('/api/auth/logout');
   ok((await alice.get('/api/episodes')).status === 401, 'a logged-out session cannot read records');
-  ok(getDb().prepare('SELECT COUNT(*) AS n FROM sessions WHERE userId = ?').get(row.id).n === 0,
+  ok((await dbCount('SELECT COUNT(*) FROM sessions WHERE userId = ?', [row.id])) === 0,
     'logging out removes the session row');
 
   await server.stop();

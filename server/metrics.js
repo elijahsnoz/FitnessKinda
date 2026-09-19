@@ -6,26 +6,24 @@
  * it does not belong here.
  */
 
-import { getDb, dbStatus } from './db.js';
+import { all, run, count, dbStatus } from './db.js';
 
 const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString();
-const one = (sql, ...args) => Object.values(getDb().prepare(sql).get(...args))[0];
+const one = (sql, ...args) => count(sql, args);
 
-export function adminMetrics() {
-  const db = getDb();
-
+export async function adminMetrics() {
   const users = {
-    total: one('SELECT COUNT(*) FROM users'),
-    newLast7: one('SELECT COUNT(*) FROM users WHERE createdAt >= ?', daysAgo(7)),
-    newLast30: one('SELECT COUNT(*) FROM users WHERE createdAt >= ?', daysAgo(30)),
+    total: await one('SELECT COUNT(*) FROM users'),
+    newLast7: await one('SELECT COUNT(*) FROM users WHERE createdAt >= ?', daysAgo(7)),
+    newLast30: await one('SELECT COUNT(*) FROM users WHERE createdAt >= ?', daysAgo(30)),
     // "Active" = signed in or wrote something recently. Still just a count.
-    activeLast7: one(
+    activeLast7: await one(
       `SELECT COUNT(DISTINCT userId) FROM (
          SELECT userId FROM sessions WHERE createdAt >= ?1
          UNION SELECT userId FROM health_entries WHERE updatedAt >= ?1)`,
       daysAgo(7)
     ),
-    activeLast30: one(
+    activeLast30: await one(
       `SELECT COUNT(DISTINCT userId) FROM (
          SELECT userId FROM sessions WHERE createdAt >= ?1
          UNION SELECT userId FROM health_entries WHERE updatedAt >= ?1)`,
@@ -34,31 +32,29 @@ export function adminMetrics() {
   };
 
   const usage = {
-    episodes: one("SELECT COUNT(*) FROM health_entries WHERE type = 'malaria_episode'"),
-    confirmedPositive: one("SELECT COUNT(*) FROM health_entries WHERE json_extract(data, '$.testResult') = 'positive'"),
-    tested: one("SELECT COUNT(*) FROM health_entries WHERE json_extract(data, '$.testResult') IN ('positive','negative')"),
-    withRecovery: one("SELECT COUNT(*) FROM health_entries WHERE endDate != ''"),
-    ongoing: one("SELECT COUNT(*) FROM health_entries WHERE endDate = ''"),
-    loggedLast7: one('SELECT COUNT(*) FROM health_entries WHERE createdAt >= ?', daysAgo(7)),
-    loggedLast30: one('SELECT COUNT(*) FROM health_entries WHERE createdAt >= ?', daysAgo(30))
+    episodes: await one("SELECT COUNT(*) FROM health_entries WHERE type = 'malaria_episode'"),
+    confirmedPositive: await one("SELECT COUNT(*) FROM health_entries WHERE json_extract(data, '$.testResult') = 'positive'"),
+    tested: await one("SELECT COUNT(*) FROM health_entries WHERE json_extract(data, '$.testResult') IN ('positive','negative')"),
+    withRecovery: await one("SELECT COUNT(*) FROM health_entries WHERE endDate != ''"),
+    ongoing: await one("SELECT COUNT(*) FROM health_entries WHERE endDate = ''"),
+    loggedLast7: await one('SELECT COUNT(*) FROM health_entries WHERE createdAt >= ?', daysAgo(7)),
+    loggedLast30: await one('SELECT COUNT(*) FROM health_entries WHERE createdAt >= ?', daysAgo(30))
   };
 
   // Entries created per day for the last fortnight — a count and a date, nothing else.
-  const daily = db
-    .prepare(
-      `SELECT substr(createdAt, 1, 10) AS day, COUNT(*) AS n
-         FROM health_entries WHERE createdAt >= ?
-        GROUP BY day ORDER BY day`
-    )
-    .all(daysAgo(14));
+  const daily = (await all(
+    `SELECT substr(createdAt, 1, 10) AS day, COUNT(*) AS n
+       FROM health_entries WHERE createdAt >= ?
+      GROUP BY day ORDER BY day`,
+    [daysAgo(14)]
+  )).map((r) => ({ day: r.day, n: Number(r.n) }));
 
-  const errors = db
-    .prepare(
-      `SELECT kind, status, COUNT(*) AS n
-         FROM error_log WHERE at >= ?
-        GROUP BY kind, status ORDER BY n DESC LIMIT 20`
-    )
-    .all(daysAgo(7));
+  const errors = (await all(
+    `SELECT kind, status, COUNT(*) AS n
+       FROM error_log WHERE at >= ?
+      GROUP BY kind, status ORDER BY n DESC LIMIT 20`,
+    [daysAgo(7)]
+  )).map((r) => ({ kind: r.kind, status: Number(r.status), n: Number(r.n) }));
 
   return {
     users,
@@ -70,18 +66,17 @@ export function adminMetrics() {
       uptimeSeconds: Math.round(process.uptime()),
       nodeVersion: process.version,
       memoryMb: Math.round(process.memoryUsage().rss / 1048576),
-      database: dbStatus(),
+      database: await dbStatus(),
       generatedAt: new Date().toISOString()
     }
   };
 }
 
 /** Counters for the admin view. Never a request body, never a user id. */
-export function logError(route, status, kind) {
+export async function logError(route, status, kind) {
   try {
-    getDb()
-      .prepare('INSERT INTO error_log (at, route, status, kind) VALUES (?, ?, ?, ?)')
-      .run(new Date().toISOString(), String(route).slice(0, 80), status, String(kind).slice(0, 60));
+    await run('INSERT INTO error_log (at, route, status, kind) VALUES (?, ?, ?, ?)',
+      [new Date().toISOString(), String(route).slice(0, 80), status, String(kind).slice(0, 60)]);
   } catch {
     /* logging must never break a request */
   }

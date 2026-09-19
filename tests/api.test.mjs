@@ -148,8 +148,8 @@ export default async function run() {
   /* ── admin ── */
   ok((await alice.get('/api/admin/metrics')).status === 403, 'a normal user cannot read admin metrics');
 
-  const { getDb } = await import('../server/db.js');
-  getDb().prepare("UPDATE users SET role = 'admin' WHERE email = 'alice@example.com'").run();
+  const { run: dbRun } = await import('../server/db.js');
+  await dbRun("UPDATE users SET role = 'admin' WHERE email = 'alice@example.com'");
   r = await alice.get('/api/admin/metrics');
   ok(r.status === 200 && r.body.users.total === 3, 'an admin reads aggregate metrics');
   const blob = JSON.stringify(r.body);
