@@ -28,14 +28,19 @@ Locally, leave `TURSO_DATABASE_URL` unset and the app uses `data/fitnesskinda.db
 brew install tursodatabase/tap/turso
 turso auth signup
 
-turso db create fitnesskinda --location fra     # keep this near the Vercel region
+turso db create fitnesskinda --location <near-your-vercel-region>
 turso db show fitnesskinda --url                # → TURSO_DATABASE_URL
 turso db tokens create fitnesskinda             # → TURSO_AUTH_TOKEN
 ```
 
-`fra` (Frankfurt) matches `"regions": ["fra1"]` in `vercel.json`. **Keep them together.**
-Every request makes several database round trips, so a function in one continent talking
-to a database in another is slow for no reason. Change both or neither.
+**Put the database in the same region as the function.** Every request makes several
+database round trips, so a function in one continent talking to a database in another is
+slow for no reason.
+
+On the Hobby plan the function region is whatever Vercel picks (commonly `iad1`,
+Washington) and is not set in `vercel.json` — region pinning there is a Pro feature. Check
+the actual region on the deployment page under **Functions**, then create the Turso
+database near it: `iad1` → `--location iad`, `fra1` → `--location fra`, `lhr1` → `--location lhr`.
 
 The schema is created automatically on the first request after a deploy — migrations run
 inside `openDatabase()`. There is no separate migration step.
@@ -133,7 +138,8 @@ so local and production are the same code with a different entry point.
 | Writes fail with 403 | `ALLOWED_ORIGINS` does not match the address in the browser (`www` vs apex) |
 | Signed out constantly | Cookies are `Secure` in production — the site must be on HTTPS |
 | Old version after deploy | `CACHE` in `sw.js` was not bumped |
-| Everything is slow | The Turso location and the Vercel region are not the same |
+| Everything is slow | The Turso location and the Vercel function region are not the same |
+| Build fails mentioning regions | `regions` in `vercel.json` is a Pro feature; it is not set for that reason |
 | First request after idle is slow | Serverless cold start plus the first database connection |
 | `/admin` refuses you | The signed-in email is not in `ADMIN_EMAILS` |
 | Preview deploys mutate real data | Preview env points at the production database — give it its own |

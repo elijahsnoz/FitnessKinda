@@ -47,9 +47,6 @@
       ]
     }
   ],
-  "regions": [
-    "fra1"
-  ],
   "functions": {
     "api/**/*.js": {
       "maxDuration": 15
