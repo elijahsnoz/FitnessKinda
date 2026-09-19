@@ -32,8 +32,9 @@ The database file is created on first run under `DATA_DIR` (default `./data`).
 ## Tests
 
 ```sh
-npm test            # logic + API + security   (131 checks, no browser needed)
+npm test               # logic + API + security   (131 checks, no browser needed)
 npm run test:browser   # end-to-end in headless Chrome (51 checks)
+npm run backup         # consistent SQLite snapshot into DATA_DIR/backups
 ```
 
 `npm test` runs three suites: the original MVP logic, the API, and a security suite
@@ -162,7 +163,10 @@ Back up by copying the SQLite file (stop the process first, or use `sqlite3 .bac
 
 ## Deployment
 
-Any host that runs Node 22 with a persistent disk: Fly.io, Render, Railway, a VPS.
+Runs on Fly.io: one machine, one volume, SQLite on disk. **Full runbook:
+[docs/deploy.md](docs/deploy.md)** — setup, DNS, backups, rollback.
+
+Any host that runs Node 22 with a persistent disk works the same way: Fly.io, Railway, a VPS.
 Serverless platforms will not work as-is, because SQLite needs a real filesystem.
 
 1. Set the environment (see `.env.example`): `NODE_ENV=production`, `DATA_DIR` pointing
