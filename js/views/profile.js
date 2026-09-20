@@ -24,7 +24,7 @@ export function renderProfile() {
     <div class="section-title">Your record</div>
     <div class="snapshot">
       <div class="snap"><span class="snap-label">Entries</span><b class="snap-value">${all.length}</b></div>
-      <div class="snap"><span class="snap-label">Since</span><b class="snap-value" style="font-size:16px">${oldest ? esc(fmtDate(oldest.startDate)) : '—'}</b></div>
+      <div class="snap"><span class="snap-label">Since</span><b class="snap-value" style="font-size:16px">${oldest ? esc(fmtDate(oldest.startDate)) : '-'}</b></div>
     </div>`;
 
   const data = `

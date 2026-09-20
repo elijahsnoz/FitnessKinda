@@ -106,7 +106,7 @@ function submitRecord(event) {
   const entry = editing ? { ...editing, ...shape } : store.makeEntry(domain.type, shape);
 
   if (!store.upsert(entry)) {
-    toast('Could not save — this device’s storage is full or blocked.');
+    toast('Could not save. This device’s storage is full or blocked.');
     return;
   }
 
@@ -234,7 +234,7 @@ function init() {
     if (el.id === 'sign-out') {
       await account.logout();
       render();
-      return toast('Signed out — your records stay on this device');
+      return toast('Signed out. Your records stay on this device');
     }
 
     /* Summary and backups */
@@ -242,7 +242,7 @@ function init() {
       try {
         await navigator.clipboard.writeText(summaryText());
         toast('Summary copied');
-      } catch { toast('Copy blocked — select the text instead.'); }
+      } catch { toast('Copy blocked. Select the text instead.'); }
       return;
     }
     if (el.id === 'download-summary') return download(`fitnesskinda-summary-${todayISO()}.txt`, summaryText(), 'text/plain');

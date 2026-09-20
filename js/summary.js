@@ -33,7 +33,7 @@ function wrap(text, indent = '  - ') {
 export function summaryText(source = store) {
   const L = [];
 
-  L.push('FITNESSKINDA — PERSONAL HEALTH SUMMARY');
+  L.push('FITNESSKINDA PERSONAL HEALTH SUMMARY');
   L.push(`Generated ${fmtDate(todayISO())}`);
   L.push('Self-reported record kept by the patient.');
   L.push('Not a medical document.');

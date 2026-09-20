@@ -14,7 +14,7 @@ export function renderMove() {
   if (!entries.length) {
     return `<h2 class="title" id="move-title">How you use your body.</h2>
       <p class="lede">Walks count. So does carrying shopping up a hill.</p>
-      ${empty('Nothing recorded yet.', 'Record a walk, a session, a stretch — whatever you actually did.', 'Record movement')}`;
+      ${empty('Nothing recorded yet.', 'Record a walk, a session, a stretch, whatever you actually did.', 'Record movement')}`;
   }
 
   const minutes = entries.map((e) => Number(e.data.minutes) || 0);

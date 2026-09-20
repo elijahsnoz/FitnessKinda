@@ -25,13 +25,13 @@ export function renderHome() {
       <h2 class="title" id="home-title">${greeting()}${name ? `, ${esc(name)}` : ''}.</h2>
       <p class="lede">Know your body. Keep your history.</p>
       ${empty('Your story starts here.',
-        'Record something small — how you slept, how you moved, how you feel. It becomes useful faster than you would think.',
+        'Record something small: how you slept, how you moved, how you feel. It becomes useful faster than you would think.',
         'Add your first record')}
       <div class="section-title">Why bother</div>
       <div class="card">
         <p style="margin:0;font-size:14.5px;line-height:1.6;color:var(--text-soft)">
           Most apps tell you what to do. FitnessKinda helps you understand what has already
-          been happening to you — and hands you a clear history when someone needs to see it.
+          been happening to you, and hands you a clear history when someone needs to see it.
         </p>
       </div>`;
   }

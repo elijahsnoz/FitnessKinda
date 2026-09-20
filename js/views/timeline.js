@@ -22,7 +22,7 @@ export function renderTimeline() {
 
   if (!all.length) {
     return `<h2 class="title" id="timeline-title">Your body, over time.</h2>
-      <p class="lede">Nothing recorded yet. That's okay — start whenever you're ready.</p>
+      <p class="lede">Nothing recorded yet. That's okay. Start whenever you're ready.</p>
       ${empty('Your story starts here.', 'Every record you keep makes the next one more useful.')}`;
   }
 

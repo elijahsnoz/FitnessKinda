@@ -42,8 +42,8 @@ export function observations(all, { limit = 3 } = {}) {
   if (move.length >= 3) {
     const now = within(move, 30).length;
     const before = between(move, 30, 60).length;
-    if (before && now > before) out.push({ text: `You recorded more movement this month than last — ${now} against ${before}.`, tone: 'good' });
-    else if (before && now < before) out.push({ text: `You recorded less movement this month than last — ${now} against ${before}.`, tone: 'calm' });
+    if (before && now > before) out.push({ text: `You recorded more movement this month than last: ${now} against ${before}.`, tone: 'good' });
+    else if (before && now < before) out.push({ text: `You recorded less movement this month than last: ${now} against ${before}.`, tone: 'calm' });
     else out.push({ text: `${plural(now, 'movement record')} in the last 30 days.`, tone: 'calm' });
   }
 
@@ -55,7 +55,7 @@ export function observations(all, { limit = 3 } = {}) {
     const spread = Math.round((Math.max(...hours) - Math.min(...hours)) * 10) / 10;
     out.push({
       text: spread <= 1.5
-        ? `Your sleep has been fairly consistent — around ${mean} hours across ${plural(sleep.length, 'recorded night')}.`
+        ? `Your sleep has been fairly consistent, around ${mean} hours across ${plural(sleep.length, 'recorded night')}.`
         : `Your recorded sleep ranges from ${Math.min(...hours)} to ${Math.max(...hours)} hours, averaging ${mean}.`,
       tone: 'calm'
     });
@@ -71,7 +71,7 @@ export function observations(all, { limit = 3 } = {}) {
     const since = daysBetween(last.startDate, todayISO());
     const recent = within(health, 30).length;
     if (recent >= 2) out.push({ text: `${plural(recent, 'health event')} recorded in the last 30 days.`, tone: 'notice' });
-    else if (since > 30) out.push({ text: `No health event recorded since ${fmtDate(last.startDate)} — ${plural(since, 'day')} ago.`, tone: 'good' });
+    else if (since > 30) out.push({ text: `No health event recorded since ${fmtDate(last.startDate)}, ${plural(since, 'day')} ago.`, tone: 'good' });
   }
 
   /* Measurements that repeat are the ones worth watching; say so without reading them. */

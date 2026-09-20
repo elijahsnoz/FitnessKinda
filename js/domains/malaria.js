@@ -58,7 +58,7 @@ const fields = [
   },
   {
     key: 'notes', type: 'textarea', label: 'Notes', rows: 3,
-    placeholder: 'Travel, weather, sleep, mosquito exposure — anything you noticed'
+    placeholder: 'Travel, weather, sleep, mosquito exposure, anything you noticed'
   }
 ];
 
@@ -136,7 +136,7 @@ export function derive(entries) {
 
 function badge(entry) {
   const result = entry.data.testResult || 'not_tested';
-  return { label: RESULT_LABEL[result] || '—', tone: result };
+  return { label: RESULT_LABEL[result] || '-', tone: result };
 }
 
 function subtitle(entry) {
@@ -180,8 +180,8 @@ function metrics(entries) {
   return [
     { value: d.total, label: 'Episodes logged' },
     { value: d.positives, label: 'Confirmed positive' },
-    { value: d.avgGap ?? '—', label: 'Avg days between' },
-    { value: d.daysSinceLast ?? '—', label: 'Days since last' }
+    { value: d.avgGap ?? '-', label: 'Avg days between' },
+    { value: d.daysSinceLast ?? '-', label: 'Days since last' }
   ];
 }
 
@@ -197,8 +197,8 @@ function overview(entries) {
     tiles: [
       { label: 'Episodes logged', value: d.total },
       { label: 'Confirmed positive', value: d.positives },
-      { label: 'Avg days between', value: d.avgGap ?? '—' },
-      { label: 'Days since last recovery', value: lastCompleted ? daysBetween(lastCompleted.endDate, todayISO()) : '—' }
+      { label: 'Avg days between', value: d.avgGap ?? '-' },
+      { label: 'Days since last recovery', value: lastCompleted ? daysBetween(lastCompleted.endDate, todayISO()) : '-' }
     ],
     ongoing: ongoing
       ? { startDate: ongoing.startDate, days: daysBetween(ongoing.startDate, todayISO()), id: ongoing.id }
@@ -263,7 +263,7 @@ function insights(entries) {
   out.push(
     d.tested
       ? `${d.positives} of ${plural(d.tested, 'recorded test')} came back positive.`
-      : 'No test results recorded yet — every episode is logged as "not tested".'
+      : 'No test results recorded yet. Every episode is logged as "not tested".'
   );
   if (d.untested) out.push(`${plural(d.untested, 'episode')} had no test recorded.`);
 
@@ -292,7 +292,7 @@ function insights(entries) {
     const months = countBy(entries.map((e) => MONTHS[toDate(e.startDate).getMonth()]));
     if (months[0].n > 1) {
       const top = months.filter((m) => m.n === months[0].n).map((m) => m.key);
-      out.push(`Episodes cluster in ${top.join(' and ')} — ${months[0].n} each.`);
+      out.push(`Episodes cluster in ${top.join(' and ')}, ${months[0].n} each.`);
     }
   } else {
     out.push(`With ${plural(d.total, 'episode')} recorded there is not enough history to say much about timing yet. Keep logging.`);
@@ -324,9 +324,9 @@ function summary(entries) {
   [...entries].reverse().forEach((e, i) => {
     L.push('');
     L.push(`  ${i + 1}. Started ${fmtDate(e.startDate)}`);
-    L.push(`     Test:      ${RESULT_LABEL[e.data.testResult] || '—'}${e.data.testType ? ` (${e.data.testType})` : ''}`);
-    L.push(`     Symptoms:  ${(e.data.symptoms || []).join(', ') || '—'}`);
-    L.push(`     Treated:   ${e.data.treatment || '—'}`);
+    L.push(`     Test:      ${RESULT_LABEL[e.data.testResult] || '-'}${e.data.testType ? ` (${e.data.testType})` : ''}`);
+    L.push(`     Symptoms:  ${(e.data.symptoms || []).join(', ') || '-'}`);
+    L.push(`     Treated:   ${e.data.treatment || '-'}`);
     L.push(`     Recovered: ${e.endDate ? `${fmtDate(e.endDate)} (${plural(daysBetween(e.startDate, e.endDate), 'day')})` : 'Ongoing / not recorded'}`);
     if (e.data.notes) L.push(`     Notes:     ${e.data.notes}`);
   });

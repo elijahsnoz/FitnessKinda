@@ -6,7 +6,7 @@ import * as store from '../store.js';
 export function renderSummary() {
   return `
     <h2 class="title" id="summary-title">Your health history, organized.</h2>
-    <p class="lede">A plain record of everything you kept — made to hand to a clinician.
+    <p class="lede">A plain record of everything you kept, made to hand to a clinician.
     Nothing leaves this device until you send it.</p>
     <div class="actions">
       <button type="button" class="btn primary" id="copy-summary">Copy</button>

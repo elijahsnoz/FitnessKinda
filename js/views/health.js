@@ -12,7 +12,7 @@ export function renderHealth() {
 
   if (!entries.length) {
     return `<h2 class="title" id="health-title">My health record.</h2>
-      <p class="lede">Symptoms, illnesses, sleep, measurements, medications — kept in one place.</p>
+      <p class="lede">Symptoms, illnesses, sleep, measurements, medications, kept in one place.</p>
       ${empty('Nothing recorded yet.', "That's okay. Start whenever you're ready.", 'Record something')}
       <div style="margin-top:18px">${privacyNote()}</div>`;
   }
