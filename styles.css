@@ -79,6 +79,9 @@
 }
 
 * { box-sizing: border-box; }
+/* A display rule on a class beats the browser's [hidden], which silently showed
+   the terms box on the sign-in form. */
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 
 body {
@@ -103,7 +106,7 @@ body {
   max-width: 720px; margin: 0 auto; padding: 12px 20px;
   display: flex; align-items: center; gap: 10px;
 }
-.topbar-mark { flex: 0 0 auto; width: 30px; height: 31px; }
+.topbar-mark { flex: 0 0 auto; width: 33px; height: 34px; }
 .topbar-mark .body { stroke: var(--text); }
 .topbar-mark .balloon { stroke: var(--teal); }
 .brand { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.02em; }
@@ -141,6 +144,7 @@ main { max-width: 720px; margin: 0 auto; padding: 26px 20px 32px; }
 
 /* ── Snapshot ──────────────────────────────────────────────────── */
 
+.empty + .note, .timeline + .disclaimer { margin-top: 20px; }
 .snapshot { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .snap {
   padding: 15px 16px;
@@ -156,6 +160,29 @@ main { max-width: 720px; margin: 0 auto; padding: 26px 20px 32px; }
 }
 .snap-when { font-size: 11.5px; color: var(--text-faint); }
 .snap.is-notice .snap-value { color: var(--notice); font-size: 16px; }
+
+/* ── A fortnight at a glance ───────────────────────────────────── */
+
+.week-strip {
+  display: flex; gap: 5px; align-items: flex-end;
+  padding: 16px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+.week-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.week-dot {
+  width: 100%; height: 30px; border-radius: 6px;
+  background: var(--line-soft);
+}
+.week-dot.has-1 { background: color-mix(in srgb, var(--teal) 35%, var(--line-soft)); }
+.week-dot.has-2 { background: color-mix(in srgb, var(--teal) 65%, var(--line-soft)); }
+.week-dot.has-3 { background: var(--teal); }
+.week-label { font-size: 10px; color: var(--text-faint); }
+
+/* First-record choices, offered inline so nothing stands between someone and
+   their first entry. */
+.quick-start { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+.quick-start .btn { flex: 1 1 auto; min-height: 56px; justify-content: center; display: flex; align-items: center; gap: 9px; }
+.quick-start .btn svg { width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: var(--teal); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ── Insights ──────────────────────────────────────────────────── */
 
@@ -194,11 +221,22 @@ main { max-width: 720px; margin: 0 auto; padding: 26px 20px 32px; }
 
 .timeline { list-style: none; margin: 0; padding: 0; }
 .day {
-  margin: 26px 0 10px;
-  font-size: 13px; font-weight: 600; letter-spacing: .01em; color: var(--text-soft);
+  display: flex; align-items: baseline; gap: 10px;
+  margin: 30px 0 14px; padding-left: 24px;
+  font-size: 14px; font-weight: 600; letter-spacing: -0.01em; color: var(--text);
 }
-.day:first-child { margin-top: 4px; }
-.day small { font-weight: 400; color: var(--text-faint); }
+.day::after {
+  content: ""; flex: 1; height: 1px; background: var(--line-soft);
+}
+.day:first-child { margin-top: 6px; }
+.day small { font-weight: 400; font-size: 12.5px; color: var(--text-faint); }
+
+/* The rail is the spine of the product: keep it unbroken between days. */
+.day + .event .event-rail::after {
+  content: ""; position: absolute; left: 4px; top: -30px; height: 30px;
+  width: 2px; background: var(--line);
+}
+.timeline > .day:first-child + .event .event-rail::after { display: none; }
 
 .event { position: relative; display: flex; gap: 14px; padding-bottom: 12px; animation: rise .3s var(--ease) both; }
 .event-rail { position: relative; flex: 0 0 10px; }
@@ -249,6 +287,12 @@ main { max-width: 720px; margin: 0 auto; padding: 26px 20px 32px; }
 /* ── Buttons ───────────────────────────────────────────────────── */
 
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+/* Stacked rows of buttons, and buttons after a block, need air. Previously each
+   view guessed at this with an inline margin, which is why they disagreed. */
+.actions + .actions { margin-top: 12px; }
+.note + .actions, .card + .actions, .snapshot + .actions, .summary + .actions,
+.timeline + .actions, form + .actions { margin-top: 18px; }
+.actions + .hint { margin-top: 10px; }
 .btn {
   flex: 1; min-height: 50px; padding: 13px 18px;
   font: inherit; font-weight: 600; font-size: 15px;
@@ -356,6 +400,8 @@ textarea { resize: vertical; line-height: 1.5; }
 .empty-title { margin: 0 0 6px; font-size: 17px; font-weight: 600; color: var(--text); }
 .empty p { margin: 0 0 18px; font-size: 14.5px; color: var(--text-soft); }
 .empty .btn { flex: 0 0 auto; }
+.empty .quick-start .btn { flex: 1 1 auto; }
+.empty > .actions { margin-top: 12px; justify-content: center; }
 
 /* ── Charts ────────────────────────────────────────────────────── */
 
@@ -400,6 +446,8 @@ body.doc main { max-width: 640px; padding: 40px 20px 72px; }
 .prose a { color: var(--teal-ink); }
 
 /* The terms box on the sign-up form. */
+#auth-switch { margin-bottom: 22px; }
+
 .consent {
   display: flex; gap: 12px; align-items: flex-start;
   margin: 0 0 22px; padding: 14px 16px;
@@ -474,6 +522,15 @@ body.doc main { max-width: 640px; padding: 40px 20px 72px; }
   .sheet-grab { display: none; }
   .add-row { position: static; }
   .toast { bottom: 28px; }
+}
+
+@media (max-width: 400px) {
+  main { padding: 22px 16px 28px; }
+  .title { font-size: 25px; }
+  .empty { padding: 34px 18px; }
+  .snap { padding: 14px; }
+  .btn { min-height: 52px; }
+  .quick-start .btn { min-height: 54px; padding: 12px 10px; font-size: 14.5px; }
 }
 
 @media print {

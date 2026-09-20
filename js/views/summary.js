@@ -14,7 +14,7 @@ export function renderSummary() {
       <button type="button" class="btn" id="print-summary">Print</button>
     </div>
     <pre id="summary-text" class="summary">${escapeHtml(summaryText())}</pre>
-    <div class="actions" style="margin-top:16px">
+    <div class="actions">
       <button type="button" class="btn ghost" data-goto="health">Back to your record</button>
     </div>`;
 }

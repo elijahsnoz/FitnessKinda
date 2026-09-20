@@ -31,18 +31,18 @@ export function renderProfile() {
     <div class="section-title">Your data</div>
     ${privacyNote(`<p>Phone browsers clear stored data from time to time. Keep a copy
       somewhere safe, and adding FitnessKinda to your home screen helps your phone hold on to it.</p>`)}
-    <div class="actions" style="margin-top:12px">
+    <div class="actions">
       <button type="button" class="btn" id="export-json">Export a backup</button>
       <button type="button" class="btn" id="import-json">Restore a backup</button>
       <input type="file" id="import-file" accept="application/json,.json" hidden>
     </div>
-    <div class="actions" style="margin-top:10px">
+    <div class="actions">
       <button type="button" class="btn ghost" data-goto="summary">Health summary</button>
     </div>`;
 
   if (mode === 'local') {
     const form = account.state.serverAvailable ? `
-      <div class="segmented" role="tablist" id="auth-switch" style="margin-bottom:20px">
+      <div class="segmented" role="tablist" id="auth-switch">
         <label><input type="radio" name="authmode" value="login" checked><span>Sign in</span></label>
         <label><input type="radio" name="authmode" value="signup"><span>Create account</span></label>
       </div>
@@ -88,17 +88,17 @@ export function renderProfile() {
       <h2 class="title" id="profile-title">Bring your record with you.</h2>
       <p class="lede">Signed in as ${esc(user.email)}.</p>
       <div class="card">
-        <div class="snapshot" style="margin-bottom:16px">
+        <div class="snapshot">
           <div class="snap"><span class="snap-label">On this device</span><b class="snap-value">${entries.length}</b></div>
           <div class="snap"><span class="snap-label">In your account</span><b class="snap-value">0</b></div>
         </div>
-        <p class="hint" style="margin-bottom:16px">A copy stays on this device, and a backup is
+        <p class="hint">A copy stays on this device, and a backup is
         kept before anything is sent. If the import fails, nothing changes.</p>
         <p id="migrate-error" class="error" role="alert" hidden></p>
         <div class="actions">
           <button type="button" class="btn primary" id="do-migrate">Import ${plural(entries.length, 'entry').replace('entrys', 'entries')}</button>
         </div>
-        <div class="actions" style="margin-top:10px">
+        <div class="actions">
           <button type="button" class="btn ghost" id="sign-out">Sign out instead</button>
         </div>
       </div>`;

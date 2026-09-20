@@ -158,13 +158,16 @@ export default async function run() {
   /* ── 12. Profile, accounts, migration ── */
   await tap('.tab[data-view="profile"]', 400);
   ok(await page.eval(`return !!document.querySelector('#auth-form')`), 'profile offers an account');
+  ok(await page.eval(`return getComputedStyle(document.querySelector('#wrap-consent')).display === 'none'`),
+    'and does not ask signing-in people to re-accept the terms');
   ok((await text()).includes('Your body. Your history. Your data.'), 'privacy is on the screen, not buried');
   await page.eval(`
     document.querySelector('input[name="authmode"][value="signup"]').click();
     document.querySelector('input[name="authmode"][value="signup"]').dispatchEvent(new Event('change', { bubbles: true }));
     return true;`);
   await wait(200);
-  ok(await page.eval(`return !document.querySelector('#wrap-consent').hidden`), 'creating an account asks you to accept the terms');
+  ok(await page.eval(`return getComputedStyle(document.querySelector('#wrap-consent')).display !== 'none'`),
+    'creating an account asks you to accept the terms');
   ok(await page.eval(`return !!document.querySelector('#wrap-consent a[href="/terms"]') && !!document.querySelector('#wrap-consent a[href="/privacy"]')`),
     'both documents are linked from the box');
   await page.eval(`

@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <title>FitnessKinda</title>
-  <rect width="512" height="512" rx="114" fill="#16150F"/>
+  <rect width="512" height="512" rx="114" fill="#263330"/>
   <g transform="translate(107 100) scale(2.95)">
-    <circle cx="49" cy="10" r="7" fill="none" stroke="#E2553A" stroke-width="6"/>
-  <path d="M10 37C22 26 32 30 41.5 28.5" fill="none" stroke="#F4F1EA" stroke-width="5" stroke-linecap="round"/>
-  <path d="M88 15C79 26 68 29 57 28.5" fill="none" stroke="#F4F1EA" stroke-width="5" stroke-linecap="round"/>
-  <path d="M49 25c-9 6 9 9 0 15-9 6 9 9 0 14" fill="none" stroke="#F4F1EA" stroke-width="5" stroke-linecap="round"/>
-  <path d="M49 54C43.5 46.5 31 45 25 52.5 19 60 23.5 72 36 83 41.5 87.5 45.5 90 47.5 93" fill="none" stroke="#F4F1EA" stroke-width="5" stroke-linecap="round"/>
-  <path d="M49 54C54.5 46 67 44 73.5 52 80 60 75 72.5 62 83.5 56.5 88 52.5 90.5 51 93.5" fill="none" stroke="#F4F1EA" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="49" cy="10" r="7" fill="none" stroke="#5CB8A9" stroke-width="6.2"/>
+  <path d="M10 37C22 26 32 30 41.5 28.5" fill="none" stroke="#F7F8F5" stroke-width="5.4" stroke-linecap="round"/>
+  <path d="M88 15C79 26 68 29 57 28.5" fill="none" stroke="#F7F8F5" stroke-width="5.4" stroke-linecap="round"/>
+  <path d="M49 25c-9 6 9 9 0 15-9 6 9 9 0 14" fill="none" stroke="#F7F8F5" stroke-width="5.4" stroke-linecap="round"/>
+  <path d="M49 54C43.5 46.5 31 45 25 52.5 19 60 23.5 72 36 83 41.5 87.5 45.5 90 47.5 93" fill="none" stroke="#F7F8F5" stroke-width="5.4" stroke-linecap="round"/>
+  <path d="M49 54C54.5 46 67 44 73.5 52 80 60 75 72.5 62 83.5 56.5 88 52.5 90.5 51 93.5" fill="none" stroke="#F7F8F5" stroke-width="5.4" stroke-linecap="round"/>
   </g>
 </svg>
