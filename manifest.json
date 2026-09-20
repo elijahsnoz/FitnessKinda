@@ -1,13 +1,24 @@
 {
   "name": "FitnessKinda",
   "short_name": "FitnessKinda",
-  "description": "Your personal health memory — log what happens to your body and see the pattern over time.",
+  "description": "Your personal health memory \u2014 log what happens to your body and see the pattern over time.",
   "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f6f7f8",
-  "theme_color": "#0f766e",
+  "background_color": "#F4F1EA",
+  "theme_color": "#16150F",
   "icons": [
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-tile.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
   ]
 }

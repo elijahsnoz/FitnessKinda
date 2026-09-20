@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f766e">
+<meta name="theme-color" content="#16150F">
 <meta name="description" content="FitnessKinda — your personal health memory. Log what happens to your body, see it on a timeline, and share a clear summary with your doctor.">
 <title>FitnessKinda</title>
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-tile.svg">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -15,8 +15,18 @@
 
 <header class="topbar">
   <div class="topbar-inner">
+    <svg class="topbar-mark" viewBox="0 0 100 104" fill="none" aria-hidden="true">
+        <circle class="balloon" cx="49" cy="10" r="7" stroke-width="6"></circle>
+        <path class="body" d="M10 37C22 26 32 30 41.5 28.5" stroke-width="5" stroke-linecap="round"></path>
+        <path class="body" d="M88 15C79 26 68 29 57 28.5" stroke-width="5" stroke-linecap="round"></path>
+        <path class="body" d="M49 25c-9 6 9 9 0 15-9 6 9 9 0 14" stroke-width="5" stroke-linecap="round"></path>
+        <path class="body" d="M49 54C43.5 46.5 31 45 25 52.5 19 60 23.5 72 36 83 41.5 87.5 45.5 90 47.5 93" stroke-width="5" stroke-linecap="round"></path>
+        <path class="body" d="M49 54C54.5 46 67 44 73.5 52 80 60 75 72.5 62 83.5 56.5 88 52.5 90.5 51 93.5" stroke-width="5" stroke-linecap="round"></path>
+      </svg>
+    <div>
     <h1 class="brand">Fitness<span>Kinda</span></h1>
     <p class="tagline">What has been happening to my body</p>
+    </div>
   </div>
 </header>
 
