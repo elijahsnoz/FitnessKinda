@@ -350,6 +350,26 @@ export default async function run() {
   await page.goto(server.origin);
   await wait(900);
 
+  /* ── 15b. The admin gate ── */
+  /* Still signed in as the ordinary account created earlier. */
+  await page.goto(`${server.origin}/admin`);
+  await wait(1200);
+  ok((await text()).includes('not an administrator'), 'an ordinary account is refused by name');
+  ok(!(await page.eval(`return !!document.querySelector('.person')`)), 'and is shown nothing about anybody');
+  ok(!(await text()).includes('Registered'), 'the registered list never renders for them');
+
+  await tap('#gate-again', 900);
+  ok(await page.eval(`return !!document.querySelector('#gate-form')`),
+    'the admin page asks for credentials in place rather than sending you away');
+  await page.eval(`
+    document.querySelector('#gate-email').value = 'first@user.test';
+    document.querySelector('#gate-password').value = 'wrong-password';
+    document.querySelector('#gate-form').requestSubmit();
+    return true;`);
+  await wait(1200);
+  ok(!(await page.eval(`return document.querySelector('#gate-error').hidden`)), 'a wrong password is refused at the gate');
+  ok(!(await page.eval(`return !!document.querySelector('.person')`)), 'and nothing leaks behind it');
+
   /* ── 16. Nothing may depend on an inline style ── */
   await page.goto(server.origin);
   await wait(900);

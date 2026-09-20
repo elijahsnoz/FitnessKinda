@@ -12,6 +12,17 @@ import { barChart } from './charts.js';
 
 const body = document.getElementById('admin-body');
 
+/* Most of these are the API doing its job, not something being wrong. */
+const MEANING = {
+  400: 'Rejected as invalid',
+  401: 'Asked to sign in',
+  403: 'Refused, not allowed',
+  404: 'Not found',
+  413: 'Request too large',
+  429: 'Throttled',
+  500: 'Server error'
+};
+
 const KIND = {
   health_event: 'Health events',
   movement: 'Movement',
@@ -68,15 +79,16 @@ function people(users) {
 /** What people record, as a share of everything kept. */
 function signals(byType) {
   if (!byType.length) return '<p class="hint">Nothing recorded yet.</p>';
-  const most = Math.max(...byType.map((t) => t.n));
+  const total = byType.reduce((sum, t) => sum + t.n, 0);
 
   return `<ul class="meters">${byType
     .map((t) => `<li>
       <span class="meter-label">${esc(KIND[t.type] || t.type)}</span>
-      <span class="meter-track"><span class="meter-fill" data-share="${Math.round((t.n / most) * 100)}"></span></span>
+      <span class="meter-track"><span class="meter-fill" data-share="${Math.round((t.n / total) * 100)}"></span></span>
       <span class="meter-n">${t.n}</span>
     </li>`)
-    .join('')}</ul>`;
+    .join('')}</ul>
+    <p class="hint has-space">Share of all ${total} ${total === 1 ? 'entry' : 'entries'}.</p>`;
 }
 
 /* Inline style attributes are blocked by our Content-Security-Policy, so anything
@@ -124,35 +136,130 @@ function render(m, users) {
         <dt>Node</dt><dd>${esc(m.system.nodeVersion)}</dd>
       </dl>
       ${m.errors.length
-        ? `<p class="hint has-space">Errors, last 7 days</p>
-           <ul class="obs">${m.errors
-             .map((e) => `<li>${esc(e.kind)} &middot; HTTP ${esc(String(e.status))} &middot; ${esc(String(e.n))}&times;</li>`)
+        ? `<p class="hint has-space">Refused or failed requests, last 7 days</p>
+           <ul class="error-rows">${m.errors
+             .map((e) => `<li>
+               <span class="error-kind">${esc(MEANING[e.status] || `HTTP ${e.status}`)}</span>
+               <span class="error-n">${esc(String(e.n))}&times;</span>
+             </li>`)
              .join('')}</ul>`
-        : '<p class="hint has-space">No errors recorded in the last seven days.</p>'}
+        : '<p class="hint has-space">Nothing refused or failed in the last seven days.</p>'}
+    </div>
+
+    <p class="disclaimer">Counts and account details only. This page cannot show anyone's
+    symptoms, notes, measurements or test results, it does not reveal which kinds of things
+    a person records, and there is no screen here that opens an individual health record.</p>
+
+    <div class="actions">
+      <a class="btn ghost" href="/">Back to the app</a>
+      <button type="button" class="btn ghost" id="admin-signout">Sign out</button>
     </div>`;
 
   applyShares();
 }
 
-function refuse(message, detail) {
+function refuse(message, detail, action = '<a class="btn primary" href="/">Open FitnessKinda</a>') {
+  body.className = '';
   body.innerHTML = `<div class="outcome">
     <div class="outcome-mark is-sorry">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7.5v6M12 16.5v.5"></path><circle cx="12" cy="12" r="9"></circle></svg>
     </div>
     <h1>${esc(message)}</h1>
     <p>${esc(detail)}</p>
-    <a class="btn primary" href="/">Open FitnessKinda</a>
+    ${action}
   </div>`;
 }
 
-Promise.all([api.adminMetrics(), api.adminUsers()])
-  .then(([metrics, { users }]) => render(metrics, users))
-  .catch((err) => {
-    if (err instanceof ApiError && err.status === 401) {
-      return refuse('Sign in first.', 'This page is for the account named in ADMIN_EMAILS on the server.');
-    }
-    if (err instanceof ApiError && err.status === 403) {
-      return refuse('This account is not an admin.', 'Admin is granted by the ADMIN_EMAILS environment variable, never from inside the app.');
-    }
-    refuse('Could not load the metrics.', err.message || 'Try again in a moment.');
-  });
+/* Sign in here rather than being sent to the app and back. Only the account named
+ * in ADMIN_EMAILS on the server gets past this; anyone else is told plainly. */
+function gate(note) {
+  body.className = 'gate';
+  body.innerHTML = `
+    <h1>Admin</h1>
+    <p class="lede">${esc(note || 'Sign in with the administrator account.')}</p>
+    <form id="gate-form" novalidate>
+      <div class="field">
+        <label for="gate-email">Email</label>
+        <input type="text" id="gate-email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="gate-password">Password</label>
+        <div class="password-field">
+          <input type="password" id="gate-password" autocomplete="current-password">
+          <button type="button" class="reveal" data-reveal="gate-password" aria-label="Show password" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="eye-open"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="eye-shut"><path d="M4 4l16 16"></path><path d="M9.5 6C10.3 5.7 11.1 5.5 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3.3 4"></path><path d="M6.3 8A17 17 0 0 0 2.5 12S6 18.5 12 18.5c1.5 0 2.8-.4 4-1"></path><path d="M10 10a3 3 0 0 0 4 4"></path></svg>
+          </button>
+        </div>
+      </div>
+      <p id="gate-error" class="error" role="alert" hidden></p>
+      <div class="actions"><button type="submit" class="btn primary" id="gate-submit">Sign in</button></div>
+    </form>
+    <div class="actions"><a class="btn ghost" href="/">Back to the app</a></div>`;
+}
+
+document.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-reveal]');
+  if (!button) return;
+  const input = document.getElementById(button.dataset.reveal);
+  const showing = button.getAttribute('aria-pressed') === 'true';
+  input.type = showing ? 'password' : 'text';
+  button.setAttribute('aria-pressed', String(!showing));
+  button.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+  input.focus();
+});
+
+document.addEventListener('submit', async (event) => {
+  if (event.target.id !== 'gate-form') return;
+  event.preventDefault();
+
+  const box = document.getElementById('gate-error');
+  const button = document.getElementById('gate-submit');
+  box.hidden = true;
+  button.disabled = true;
+  button.textContent = 'Signing in…';
+
+  try {
+    await api.login({
+      email: document.getElementById('gate-email').value.trim(),
+      password: document.getElementById('gate-password').value
+    });
+    load();
+  } catch (err) {
+    box.textContent = err.message || 'That did not work.';
+    box.hidden = false;
+    button.disabled = false;
+    button.textContent = 'Sign in';
+  }
+});
+
+function load() {
+  body.className = '';
+  body.innerHTML = '<p class="hint">Loading…</p>';
+  Promise.all([api.adminMetrics(), api.adminUsers()])
+    .then(([metrics, { users }]) => render(metrics, users))
+    .catch((err) => {
+      if (err instanceof ApiError && err.status === 401) return gate();
+      if (err instanceof ApiError && err.status === 403) {
+        return refuse(
+          'This account is not an administrator.',
+          'Admin is granted by the ADMIN_EMAILS setting on the server and cannot be given from inside the app.',
+          '<button type="button" class="btn primary" id="gate-again">Use another account</button>'
+        );
+      }
+      refuse('Could not load the metrics.', err.message || 'Try again in a moment.');
+    });
+}
+
+document.addEventListener('click', async (event) => {
+  if (event.target.id === 'admin-signout') {
+    try { await api.logout(); } catch { /* going offline is still a sign-out */ }
+    gate('Signed out. Sign in again to continue.');
+    return;
+  }
+  if (event.target.id !== 'gate-again') return;
+  try { await api.logout(); } catch { /* signing out locally is enough */ }
+  gate('Sign in with the administrator account.');
+});
+
+load();

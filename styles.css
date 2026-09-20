@@ -488,6 +488,20 @@ body.admin .section-title:first-child { margin-top: 0; }
   .person-count { align-self: center; }
 }
 
+.error-rows { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.error-rows li {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 8px 11px; border-radius: var(--radius-sm);
+  background: var(--surface-2); font-size: 13px; color: var(--text-soft);
+}
+.error-rows .error-kind { font-weight: 500; color: var(--text); }
+.error-rows .error-n { font-variant-numeric: tabular-nums; color: var(--text-faint); }
+
+/* The admin sign-in sits on its own, centred, with nothing else on screen. */
+.gate { max-width: 380px; margin: 8vh auto 0; }
+.gate h1 { margin: 0 0 6px; font-size: 24px; font-weight: 600; letter-spacing: -0.03em; }
+.gate p.lede { margin-bottom: 26px; }
+
 /* ── Empty states ──────────────────────────────────────────────── */
 
 .empty { padding: 44px 24px; text-align: center; background: var(--surface); border: 1px dashed var(--line); border-radius: var(--radius); }
@@ -628,6 +642,10 @@ body.doc main { max-width: 640px; padding: 40px 20px 72px; }
 
 @media (min-width: 900px) {
   body { padding-bottom: 0; padding-left: 232px; }
+  /* Pages with no sidebar should sit in the middle of the window, not beside a
+     gutter reserved for navigation they do not have. */
+  body.doc, body.admin { padding-left: 0; }
+  body.admin .topbar-inner, body.admin main { max-width: 820px; margin: 0 auto; }
   .topbar { position: static; background: none; border: 0; backdrop-filter: none; }
   .topbar-inner { padding: 32px 32px 0; max-width: 860px; }
   main { max-width: 860px; padding: 20px 32px 64px; }
