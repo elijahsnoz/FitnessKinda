@@ -19,7 +19,7 @@ import { HttpError } from './util.js';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 /* ── Static files: an explicit allow-list, never a directory walk ── */
-const STATIC = new Set(['/index.html', '/admin.html', '/styles.css', '/sw.js', '/manifest.json', '/icon.svg', '/icon-tile.svg']);
+const STATIC = new Set(['/index.html', '/admin.html', '/styles.css', '/sw.js', '/manifest.json', '/icon.svg']);
 const ALIASES = { '/': '/index.html', '/admin': '/admin.html' };
 
 const TYPES = {

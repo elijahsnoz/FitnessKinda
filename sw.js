@@ -7,7 +7,7 @@
  * Bump CACHE when any shell file changes, or browsers will keep serving the old one.
  */
 
-const CACHE = 'fitnesskinda-shell-v3';
+const CACHE = 'fitnesskinda-shell-v2';
 
 const SHELL = [
   './',
@@ -15,7 +15,6 @@ const SHELL = [
   'styles.css',
   'manifest.json',
   'icon.svg',
-  'icon-tile.svg',
   'admin.html',
   'js/app.js',
   'js/api.js',
@@ -55,6 +54,24 @@ self.addEventListener('fetch', (event) => {
    * worse than an honest failure. The app keeps its own offline copy in
    * localStorage, which is where offline reads come from. */
   if (url.pathname.startsWith('/api/')) return;
+
+  /* Navigations go to the network first, so a deploy lands on the next load
+   * rather than after two. The cached page is still there when there is no
+   * connection, which is the whole point of this file. */
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((c) => c.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((hit) => hit || caches.match('index.html')))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(request).then((hit) => {

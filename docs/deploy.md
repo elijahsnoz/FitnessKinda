@@ -85,9 +85,13 @@ git push
 ```
 
 **Bump `CACHE` in `sw.js` whenever a shell file changes** — `index.html`, `styles.css`,
-anything under `js/`, `admin.html`. Skip it and returning visitors keep the old app
-indefinitely, because the service worker serves its cached copy first. This is the most
-likely reason a deploy appears to do nothing.
+anything under `js/`, `admin.html`.
+
+Navigations are network-first, so the page itself updates on the next load. Everything
+else — CSS, the JS modules — is served cache-first and only changes when `CACHE` does.
+Skip the bump and visitors get the new HTML with the old stylesheet, which looks worse
+than not deploying at all. To see a deploy immediately on a device that has the old
+version, hard reload (Cmd+Shift+R) or open it in a private window.
 
 ## Backups
 
@@ -137,7 +141,8 @@ so local and production are the same code with a different entry point.
 | `/api/health` says `database: error` | `TURSO_DATABASE_URL` or `TURSO_AUTH_TOKEN` wrong or missing |
 | Writes fail with 403 | `ALLOWED_ORIGINS` does not match the address in the browser (`www` vs apex) |
 | Signed out constantly | Cookies are `Secure` in production — the site must be on HTTPS |
-| Old version after deploy | `CACHE` in `sw.js` was not bumped |
+| Old styles after deploy | `CACHE` in `sw.js` was not bumped |
+| Old page on one device | That browser still holds the previous shell — hard reload once |
 | Everything is slow | The Turso location and the Vercel function region are not the same |
 | Build fails mentioning regions | `regions` in `vercel.json` is a Pro feature; it is not set for that reason |
 | First request after idle is slow | Serverless cold start plus the first database connection |
