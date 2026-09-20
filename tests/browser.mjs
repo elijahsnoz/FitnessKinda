@@ -295,8 +295,20 @@ export default async function run() {
   ok((await text()).includes('Your body. Your history. Your data.'), 'the privacy notice opens with the promise');
   ok((await text()).includes('We run no analytics'), 'and states what is not done');
   await page.goto(`${server.origin}/verify`);
-  await wait(500);
+  await wait(600);
   ok((await text()).includes('incomplete'), 'the verify page handles a missing token gracefully');
+  ok(await page.eval(`return !!document.querySelector('.topbar-mark')`), 'and still looks like FitnessKinda');
+  /* What a person would notice, not which display keyword won: a flex item's
+     inline-flex blockifies to flex, so asserting the keyword proves nothing. */
+  ok(await page.eval(`
+    const a = document.querySelector('a.btn');
+    const cs = getComputedStyle(a);
+    const r = a.getBoundingClientRect();
+    return cs.textDecorationLine === 'none'
+      && /flex/.test(cs.display)
+      && cs.justifyContent === 'center'
+      && r.height >= 44;`),
+    'a link styled as a button renders as a button');
   await page.goto(server.origin);
   await wait(900);
 
