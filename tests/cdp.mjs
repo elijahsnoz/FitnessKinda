@@ -12,7 +12,7 @@ const CHROME =
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function launchChrome() {
+export async function launchChrome({ extraArgs = [] } = {}) {
   const profile = mkdtempSync(join(tmpdir(), 'fk-chrome-'));
   const port = 9300 + Math.floor(Math.random() * 400);
 
@@ -24,6 +24,7 @@ export async function launchChrome() {
     '--disable-extensions',
     `--remote-debugging-port=${port}`,
     `--user-data-dir=${profile}`,
+    ...extraArgs,
     'about:blank'
   ], { stdio: 'ignore' });
 
