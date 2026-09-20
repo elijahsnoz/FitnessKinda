@@ -79,6 +79,9 @@
 }
 
 * { box-sizing: border-box; }
+
+a { color: var(--teal-ink); text-underline-offset: 2px; }
+a:hover { color: var(--teal-deep); }
 /* A display rule on a class beats the browser's [hidden], which silently showed
    the terms box on the sign-in form. */
 [hidden] { display: none !important; }
@@ -400,6 +403,28 @@ textarea { resize: vertical; line-height: 1.5; }
 .note p { margin: 0; }
 .note p + p { margin-top: 7px; }
 .note strong { color: var(--text); font-weight: 600; }
+
+/* ── The small print ───────────────────────────────────────────── */
+
+.small-print { padding: 0; overflow: hidden; }
+.small-print > p {
+  margin: 0; padding: 16px 18px;
+  font-size: 14px; line-height: 1.55; color: var(--text-soft);
+}
+.link-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 15px 18px; min-height: 52px;
+  font-size: 15px; font-weight: 500; color: var(--text);
+  text-decoration: none;
+  border-top: 1px solid var(--line-soft);
+}
+.link-row:hover { background: var(--surface-2); color: var(--text); }
+.link-row svg {
+  width: 16px; height: 16px; flex: 0 0 auto;
+  fill: none; stroke: var(--text-faint); stroke-width: 1.9;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.link-row:hover svg { stroke: var(--teal); }
 
 /* ── Empty states ──────────────────────────────────────────────── */
 

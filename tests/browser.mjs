@@ -175,6 +175,17 @@ export default async function run() {
     const b = document.querySelector('[data-reveal="auth-password"]').getBoundingClientRect();
     return Math.round(b.height) >= 44 && Math.round(b.width) >= 44;`), 'the eye is a comfortable target');
   ok((await text()).includes('Your body. Your history. Your data.'), 'privacy is on the screen, not buried');
+
+  /* The documents are reachable before signing up, and look like ours rather
+     than like browser-default links. */
+  ok(await page.eval(`return document.querySelectorAll('.small-print .link-row').length === 2`),
+    'terms and privacy are reachable from a signed-out profile');
+  ok(await page.eval(`
+    const rows = [...document.querySelectorAll('.link-row')];
+    return rows.every(a => {
+      const cs = getComputedStyle(a);
+      return cs.textDecorationLine === 'none' && a.getBoundingClientRect().height >= 44;
+    });`), 'and are unstyled-link free with comfortable targets');
   await page.eval(`
     document.querySelector('input[name="authmode"][value="signup"]').click();
     document.querySelector('input[name="authmode"][value="signup"]').dispatchEvent(new Event('change', { bubbles: true }));

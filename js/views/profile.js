@@ -93,7 +93,16 @@ export function renderProfile() {
       so it survives a cleared browser or a lost phone.</p>
       ${form}
       ${record}
-      ${data}`;
+      ${data}
+      <div class="section-title">The small print</div>
+      <div class="card small-print">
+        <p>FitnessKinda keeps a record of what you tell it. It does not give medical
+        advice, and it does not diagnose anything.</p>
+        <a class="link-row" href="/terms">Terms of use
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></a>
+        <a class="link-row" href="/privacy">Privacy notice
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></a>
+      </div>`;
   }
 
   if (mode === 'migrate') {
@@ -138,12 +147,13 @@ export function renderProfile() {
     ${record}
     ${data}
     <div class="section-title">The small print</div>
-    <div class="card">
-      <p style="margin:0;font-size:14.5px;line-height:1.6;color:var(--text-soft)">
-        <a href="/terms" style="color:var(--teal-ink)">Terms of use</a> &middot;
-        <a href="/privacy" style="color:var(--teal-ink)">Privacy notice</a><br>
-        FitnessKinda does not give medical advice.
-      </p>
+    <div class="card small-print">
+      <p>FitnessKinda keeps a record of what you tell it. It does not give medical
+      advice, and it does not diagnose anything.</p>
+      <a class="link-row" href="/terms">Terms of use
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></a>
+      <a class="link-row" href="/privacy">Privacy notice
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></a>
     </div>
 
     <div class="section-title">Account</div>
