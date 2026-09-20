@@ -445,6 +445,27 @@ body.doc main { max-width: 640px; padding: 40px 20px 72px; }
 .prose strong { color: var(--text); font-weight: 600; }
 .prose a { color: var(--teal-ink); }
 
+/* A password you can check before committing to it. */
+.password-field { position: relative; }
+.password-field input { padding-right: 54px; }
+.reveal {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center;
+  width: 46px; height: 46px; padding: 0;
+  background: none; border: 0; border-radius: var(--radius-sm);
+  color: var(--text-faint); cursor: pointer;
+}
+.reveal:hover { color: var(--text-soft); }
+.reveal svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.reveal .eye-shut { display: none; }
+.reveal[aria-pressed="true"] .eye-open { display: none; }
+.reveal[aria-pressed="true"] .eye-shut { display: block; }
+.reveal[aria-pressed="true"] { color: var(--teal-ink); }
+
+/* The confirm field says where it stands as you type, in words as well as colour. */
+#confirm-hint.is-match { color: var(--good); }
+#confirm-hint.is-mismatch { color: var(--attention); }
+
 /* The terms box on the sign-up form. */
 #auth-switch { margin-bottom: 22px; }
 

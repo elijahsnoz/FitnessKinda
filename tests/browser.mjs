@@ -160,6 +160,20 @@ export default async function run() {
   ok(await page.eval(`return !!document.querySelector('#auth-form')`), 'profile offers an account');
   ok(await page.eval(`return getComputedStyle(document.querySelector('#wrap-consent')).display === 'none'`),
     'and does not ask signing-in people to re-accept the terms');
+  ok(await page.eval(`return getComputedStyle(document.querySelector('#wrap-authconfirm')).display === 'none'`),
+    'signing in does not ask for the password twice');
+
+  /* The password can be checked before it is committed to. */
+  ok(await page.eval(`return document.querySelector('#auth-password').type === 'password'`), 'the password starts hidden');
+  await tap('[data-reveal="auth-password"]', 150);
+  ok(await page.eval(`return document.querySelector('#auth-password').type === 'text'`), 'the eye reveals it');
+  ok(await page.eval(`return document.querySelector('[data-reveal="auth-password"]').getAttribute('aria-label') === 'Hide password'`),
+    'and the button says what it will do next');
+  await tap('[data-reveal="auth-password"]', 150);
+  ok(await page.eval(`return document.querySelector('#auth-password').type === 'password'`), 'tapping again hides it');
+  ok(await page.eval(`
+    const b = document.querySelector('[data-reveal="auth-password"]').getBoundingClientRect();
+    return Math.round(b.height) >= 44 && Math.round(b.width) >= 44;`), 'the eye is a comfortable target');
   ok((await text()).includes('Your body. Your history. Your data.'), 'privacy is on the screen, not buried');
   await page.eval(`
     document.querySelector('input[name="authmode"][value="signup"]').click();
@@ -179,6 +193,35 @@ export default async function run() {
   await wait(500);
   ok(await page.eval(`return !document.querySelector('#auth-error').hidden`), 'signing up without accepting is refused in the browser');
   ok(!(await page.eval(`return !!document.querySelector('#do-migrate')`)), 'and no account is created');
+
+  /* Typing the password twice, and being told where it stands. */
+  ok(await page.eval(`return getComputedStyle(document.querySelector('#wrap-authconfirm')).display !== 'none'`),
+    'creating an account asks for the password twice');
+  await page.eval(`
+    const again = document.querySelector('#auth-confirm');
+    again.value = 'a-good-passwerd';
+    again.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;`);
+  await wait(150);
+  ok((await page.eval(`return document.querySelector('#confirm-hint').textContent`)).includes('do not match'),
+    'a mismatch says so while you type');
+  ok(await page.eval(`return document.querySelector('#confirm-hint').classList.contains('is-mismatch')`),
+    'and is not carried by colour alone');
+  await page.eval(`
+    document.querySelector('#auth-terms').checked = true;
+    document.querySelector('#auth-form').requestSubmit();
+    return true;`);
+  await wait(300);
+  ok((await page.eval(`return document.querySelector('#auth-error').textContent`)).includes('not the same'),
+    'and a mismatched sign-up is refused');
+  await page.eval(`
+    const again = document.querySelector('#auth-confirm');
+    again.value = 'a-good-password';
+    again.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;`);
+  await wait(150);
+  ok((await page.eval(`return document.querySelector('#confirm-hint').textContent`)).includes('match'),
+    'and a match says so too');
 
   await page.eval(`
     document.querySelector('input[name="authmode"][value="signup"]').click();

@@ -231,6 +231,16 @@ function init() {
       return;
     }
 
+    if (el.dataset.reveal) {
+      const input = $(`#${el.dataset.reveal}`);
+      const showing = el.getAttribute('aria-pressed') === 'true';
+      input.type = showing ? 'password' : 'text';
+      el.setAttribute('aria-pressed', String(!showing));
+      el.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+      input.focus();
+      return;
+    }
+
     if (el.id === 'resend-verify') {
       el.disabled = true;
       el.textContent = 'Sending…';
@@ -273,6 +283,13 @@ function init() {
     const mode = ($('input[name="authmode"]:checked') || {}).value || 'login';
     const box = $('#auth-error');
 
+    if (mode === 'signup' && $('#auth-password').value !== $('#auth-confirm').value) {
+      box.textContent = 'Those two passwords are not the same.';
+      box.hidden = false;
+      $('#auth-confirm').focus();
+      return;
+    }
+
     if (mode === 'signup' && !$('#auth-terms').checked) {
       box.textContent = 'Please accept the terms and the privacy notice to continue.';
       box.hidden = false;
@@ -306,7 +323,9 @@ function init() {
     if (event.target.name === 'authmode') {
       const signup = event.target.value === 'signup';
       $('#wrap-authname').hidden = !signup;
+      $('#wrap-authconfirm').hidden = !signup;
       $('#wrap-consent').hidden = !signup;
+      if (!signup) $('#auth-confirm').value = '';
       $('#auth-submit').textContent = signup ? 'Create account' : 'Sign in';
       $('#auth-password').autocomplete = signup ? 'new-password' : 'current-password';
       return;
@@ -327,6 +346,27 @@ function init() {
         } catch { toast('That file could not be read.'); }
       };
       reader.readAsText(file);
+    }
+  });
+
+  document.addEventListener('input', (event) => {
+    if (event.target.id !== 'auth-confirm' && event.target.id !== 'auth-password') return;
+    const confirmWrap = $('#wrap-authconfirm');
+    if (!confirmWrap || confirmWrap.hidden) return;
+
+    const password = $('#auth-password').value;
+    const again = $('#auth-confirm').value;
+    const hint = $('#confirm-hint');
+    hint.classList.remove('is-match', 'is-mismatch');
+
+    if (!again) {
+      hint.textContent = 'There is no password reset yet, so a typo here would cost you the account.';
+    } else if (password === again) {
+      hint.textContent = 'They match.';
+      hint.classList.add('is-match');
+    } else {
+      hint.textContent = 'These do not match yet.';
+      hint.classList.add('is-mismatch');
     }
   });
 

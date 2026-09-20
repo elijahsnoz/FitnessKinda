@@ -57,8 +57,22 @@ export function renderProfile() {
         </div>
         <div class="field">
           <label for="auth-password">Password</label>
-          <input type="password" id="auth-password" autocomplete="current-password">
+          <div class="password-field">
+            <input type="password" id="auth-password" autocomplete="current-password">
+            <button type="button" class="reveal" data-reveal="auth-password"
+              aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" class="eye-open"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"></path><circle cx="12" cy="12" r="3"></circle></svg><svg viewBox="0 0 24 24" aria-hidden="true" class="eye-shut"><path d="M4 4l16 16"></path><path d="M9.5 6C10.3 5.7 11.1 5.5 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3.3 4"></path><path d="M6.3 8A17 17 0 0 0 2.5 12S6 18.5 12 18.5c1.5 0 2.8-.4 4-1"></path><path d="M10 10a3 3 0 0 0 4 4"></path></svg></button>
+          </div>
           <p class="hint">At least 8 characters.</p>
+        </div>
+        <div class="field" id="wrap-authconfirm" hidden>
+          <label for="auth-confirm">Type it again</label>
+          <div class="password-field">
+            <input type="password" id="auth-confirm" autocomplete="new-password">
+            <button type="button" class="reveal" data-reveal="auth-confirm"
+              aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" class="eye-open"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"></path><circle cx="12" cy="12" r="3"></circle></svg><svg viewBox="0 0 24 24" aria-hidden="true" class="eye-shut"><path d="M4 4l16 16"></path><path d="M9.5 6C10.3 5.7 11.1 5.5 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3.3 4"></path><path d="M6.3 8A17 17 0 0 0 2.5 12S6 18.5 12 18.5c1.5 0 2.8-.4 4-1"></path><path d="M10 10a3 3 0 0 0 4 4"></path></svg></button>
+          </div>
+          <p class="hint" id="confirm-hint">There is no password reset yet, so a typo here
+          would cost you the account.</p>
         </div>
         <label class="consent" id="wrap-consent" hidden>
           <input type="checkbox" id="auth-terms">
