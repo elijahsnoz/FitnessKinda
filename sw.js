@@ -15,6 +15,7 @@ const SHELL = [
   'styles.css',
   'manifest.json',
   'icon.svg',
+  'icon-tile.svg',
   'admin.html',
   'js/app.js',
   'js/api.js',
