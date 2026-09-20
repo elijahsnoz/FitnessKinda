@@ -7,7 +7,7 @@
  * Bump CACHE when any shell file changes, or browsers will keep serving the old one.
  */
 
-const CACHE = 'fitnesskinda-shell-v4';
+const CACHE = 'fitnesskinda-shell-v5';
 
 const SHELL = [
   './',
@@ -18,9 +18,23 @@ const SHELL = [
   'icon-tile.svg',
   'admin.html',
   'js/app.js',
+  'js/insights.js',
+  'js/views/parts.js',
+  'js/views/home.js',
+  'js/views/timeline.js',
+  'js/views/move.js',
+  'js/views/health.js',
+  'js/views/profile.js',
+  'js/views/summary.js',
+  'js/domains/kit.js',
+  'js/domains/health-event.js',
+  'js/domains/movement.js',
+  'js/domains/sleep.js',
+  'js/domains/measurement.js',
+  'js/domains/medication.js',
+  'js/domains/note.js',
   'js/api.js',
   'js/account.js',
-  'js/account-view.js',
   'js/admin.js',
   'js/store.js',
   'js/registry.js',

@@ -1,21 +1,33 @@
 # FitnessKinda
 
-**fitnesskinda.fit** — a personal health memory and pattern tracker.
+**fitnesskinda.fit** — know your body, keep your history.
 
-The product answers one question: *what has been happening to my body over time?*
-It records what you notice, lays it out on a timeline, shows the trends in your own
-data, and produces a summary you can hand to a doctor.
+A private personal health timeline. It records what you notice, lays it out over time,
+surfaces what your own data says, and produces a summary you can hand to a clinician.
 
-It does **not** diagnose anything and does **not** recommend medication.
+Most apps tell you what to do. This one helps you understand what has already been
+happening to you.
+
+It does **not** diagnose anything and does **not** recommend treatment.
 
 ## Status
 
-Prototype 2: full-stack. **Malaria episodes are the only signal implemented.** Sleep,
-exercise, hydration, nutrition and exposure are designed for but deliberately not built
-(see `js/registry.js`).
+Seven signals: health events, movement, sleep, measurements, medications, malaria
+episodes and notes. Hydration, food and environment exposure are designed for and not
+built (see `js/registry.js`).
 
-The app still works with no account and no server — that was the MVP and it is intact.
-An account adds a durable copy in a database.
+The app works with no account and no server — records live on the device. An account
+adds a durable copy in a database, and nothing is gated behind it.
+
+## Screens
+
+| | Answers |
+|---|---|
+| Home | How am I doing? |
+| Timeline | What has been happening to me? |
+| Move | How am I using my body? |
+| Health | What health information have I recorded? |
+| Profile | Who controls my information? |
 
 ## Running it
 
@@ -52,7 +64,9 @@ admin.html          aggregate metrics, admin only
 styles.css          mobile-first, light + dark, no framework
 sw.js               caches the app shell for offline use (never the API)
 js/
-  app.js            wiring: views, tabs, save/edit/delete, export/import
+  app.js            the shell: screens, the add sheet, the record form
+  insights.js       Kinda Insights — observations, never conclusions
+  views/            home, timeline, move, health, profile, summary, shared parts
   store.js          the device's working copy — the entry envelope, in localStorage
   account.js        session, the write queue, and migration
   api.js            fetch wrapper for /api
@@ -64,7 +78,10 @@ js/
   charts.js         SVG bar charts
   summary.js        the doctor summary (shared with the server)
   domains/
-    malaria.js      everything malaria-specific — including its validation rules
+    kit.js          the factory most domains are declared with
+    malaria.js      the one domain with real analysis behind it
+    health-event.js, movement.js, sleep.js, measurement.js,
+    medication.js, note.js
 api/
   [...path].js      Vercel entry: opens the database, then the shared handler
 server/
@@ -195,7 +212,16 @@ changes**, or returning visitors keep the old version. The API is never cached.
 
 ## Boundaries
 
-Insights are descriptive only: counts, averages, gaps and timing computed from what the
-user entered. No inference about cause, no diagnosis, no medication guidance. The
-disclaimer on the Trends view and in the exported summary states this to the user and to
-any doctor reading it. Keep it that way.
+Kinda Insights are descriptive only: counts, averages, spans, and comparisons between two
+equal windows of time. Nothing infers a cause, and **nothing connects two different
+signals** — "you sleep badly when you exercise less" is a claim this product has no
+standing to make, however tempting the data looks. No diagnosis, no treatment guidance.
+
+The colour system carries no meaning on its own: every state also has a word. Teal is
+reserved for actions and the brand, never for a health judgement.
+
+## Design
+
+Botanical teal `#2F8F83` on warm off-white `#F7F8F5`, warm charcoal `#263330` for text,
+sage and sand for quiet surfaces. Dark mode is a deep blue-green, never black.
+Instrument Sans throughout. Brand assets live in `brand/`.

@@ -1,35 +1,43 @@
 /* The signal registry.
  *
- * FitnessKinda's premise is that one body produces many signals, and that the
- * interesting thing is how they line up over time. Each signal is a domain module
- * with the same shape; the app iterates over whatever is registered here.
+ * One body produces many signals; the interesting thing is how they line up over
+ * time. Each signal is a domain module with the same shape, and every view in the
+ * app iterates over whatever is registered here rather than knowing any of them.
  *
- * Only malaria is built. The PLANNED list is not UI and not dead code — it is the
- * contract the envelope was designed around (see store.js), recorded so the next
- * signal is a new file here rather than a rewrite.
+ * Adding the next signal is a new file in js/domains/ and a line in this list.
  */
 
 import malaria from './domains/malaria.js';
+import healthEvent from './domains/health-event.js';
+import movement from './domains/movement.js';
+import sleep from './domains/sleep.js';
+import measurement from './domains/measurement.js';
+import medication from './domains/medication.js';
+import note from './domains/note.js';
 
-export const DOMAINS = [malaria];
+/* The order people meet them in when they tap Add. */
+export const DOMAINS = [healthEvent, movement, sleep, measurement, medication, malaria, note];
 
 export const byType = (type) => DOMAINS.find((d) => d.type === type) || null;
+export const bySection = (section) => DOMAINS.filter((d) => d.section === section);
 
-/** The signal currently being logged. One today; a picker when there are more. */
-export const primary = () => DOMAINS[0];
+/** Malaria remains the signal with real analysis behind it. */
+export const primary = () => malaria;
 
-/* Next signals, in the order they make sense to add. Each becomes a module in
- * js/domains/ with the same interface malaria.js implements:
- *   type, fields, toValues, fromValues, validate, badge, subtitle, rows,
- *   metrics, charts, insights, summary
- *
- * Each also gets a `context` slot on entries of other types, so an episode can
- * eventually carry the sleep, hydration and exposure recorded around it.
- */
+/* What the timeline offers as filters. */
+export const FILTERS = [
+  { key: 'all', label: 'All', types: null },
+  { key: 'health', label: 'Health', types: ['health_event', 'malaria_episode', 'medication'] },
+  { key: 'move', label: 'Move', types: ['movement'] },
+  { key: 'sleep', label: 'Sleep', types: ['sleep'] },
+  { key: 'measurements', label: 'Measurements', types: ['measurement'] },
+  { key: 'notes', label: 'Notes', types: ['note'] }
+];
+
+/* Signals the envelope is ready for but nobody has asked for yet. Each becomes a
+ * sibling of the files above: type, fields, toValues, fromValues, badge, rows. */
 export const PLANNED = [
-  { type: 'sleep_night',   label: 'Sleep',       fields: ['hours', 'quality', 'wakeups'] },
-  { type: 'exercise',      label: 'Exercise',    fields: ['activity', 'minutes', 'intensity'] },
-  { type: 'hydration_day', label: 'Hydration',   fields: ['litres'] },
-  { type: 'meal',          label: 'Food',        fields: ['description', 'time'] },
-  { type: 'exposure',      label: 'Mosquito / environment', fields: ['netUsed', 'repellent', 'standingWater', 'travel', 'rain'] }
+  { type: 'hydration_day', label: 'Hydration', fields: ['litres'] },
+  { type: 'meal', label: 'Food', fields: ['description', 'time'] },
+  { type: 'exposure', label: 'Mosquito / environment', fields: ['netUsed', 'repellent', 'standingWater', 'travel'] }
 ];

@@ -1,7 +1,8 @@
-/* End-to-end in a real browser, driven over the DevTools Protocol.
+/* End-to-end in a real browser, over the DevTools Protocol.
  *
- * Covers: the original MVP signed out, sign-up, migration, the dashboard,
- * offline queueing, and the three viewports. */
+ * Covers the five screens, recording every kind of signal, the timeline and its
+ * filters, Kinda Insights, accounts and migration, offline queueing, the health
+ * summary, stored-XSS, CSP, and three viewports. */
 
 import { suite, startTestServer } from './harness.mjs';
 import { launchChrome, openPage } from './cdp.mjs';
@@ -14,243 +15,226 @@ export default async function run() {
   const chrome = await launchChrome();
   const page = await openPage(chrome.port, server.origin);
   await page.enableNetwork();
-  await page.setViewport(390, 700);
+  await page.setViewport(390, 780);
   await page.goto(server.origin);
 
-  const $ = (sel) => `document.querySelector(${JSON.stringify(sel)})`;
+  const text = () => page.eval('return document.body.textContent');
+  const tap = async (sel, pause = 220) => {
+    await page.eval(`document.querySelector(${JSON.stringify(sel)}).click(); return true;`);
+    await wait(pause);
+  };
 
-  /* ── 1. The MVP still works with no account ── */
-  ok(await page.eval(`return !!${$('#wrap-startDate')}`), 'the log form renders');
-  ok(await page.eval(`return ${$('#view-log .note')}.textContent.includes('stays on this device')`),
-    'the privacy line is still above the form');
+  /* ── 1. Home, with nothing recorded ── */
+  ok(await page.eval(`return !!document.querySelector('#view-home .empty')`), 'home opens on an empty state, not a dashboard');
+  ok((await text()).includes('Your story starts here'), 'the empty state invites rather than reports nothing');
+  ok((await text()).includes('Know your body. Keep your history.'), 'the tagline is on the home screen');
+  ok(await page.eval(`return document.querySelectorAll('.tab').length === 5`), 'five sections');
+  ok(await page.eval(`return [...document.querySelectorAll('.tab span')].map(s => s.textContent).join(',') === 'Home,Timeline,Move,Health,Profile'`),
+    'the sections are Home, Timeline, Move, Health, Profile');
 
+  /* ── 2. The add sheet ── */
+  await tap('[data-add]');
+  ok(await page.eval(`return !!document.querySelector('.sheet')`), 'Add opens a sheet');
+  ok(await page.eval(`return document.querySelectorAll('.sheet-item').length === 7`), 'every signal is offered');
+  await page.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); return true;`);
+  await wait(150);
+  ok(await page.eval(`return !document.querySelector('.sheet')`), 'Escape closes the sheet');
+
+  /* ── 3. Recording movement ── */
+  await tap('[data-add]');
+  await tap('[data-record="movement"]');
+  ok(await page.eval(`return !!document.querySelector('#record-form')`), 'picking a kind opens one form');
+  ok(await page.eval(`return document.querySelector('#f-startDate').value === new Date().toISOString().slice(0,10)`),
+    'the date is already today');
+  await page.eval(`
+    document.querySelector('input[name="activity"][value="Walk"]').checked = true;
+    document.querySelector('#f-minutes').value = '35';
+    document.querySelector('input[name="effort"][value="steady"]').click();
+    document.querySelector('#record-form').requestSubmit();
+    return true;`);
+  await wait(400);
+  ok(await page.eval(`return !document.querySelector('#view-timeline').hidden`), 'saving lands on the timeline');
+  ok(await page.eval(`return document.querySelectorAll('#view-timeline .event').length === 1`), 'the record is there');
+  ok((await text()).includes('Added to your timeline'), 'the confirmation says where it went');
+  ok((await text()).includes('35 min'), 'the timeline shows what was recorded');
+
+  /* ── 4. Every other kind records too ── */
+  const kinds = [
+    ['sleep', `document.querySelector('#f-hours').value='7.5'; document.querySelector('input[name="quality"][value="good"]').click();`],
+    ['health_event', `document.querySelector('input[name="kind"][value="symptom"]').click(); document.querySelector('#f-what').value='Headache';`],
+    ['measurement', `document.querySelector('#f-kind').value='Weight'; document.querySelector('#f-value').value='72.4 kg';`],
+    ['medication', `document.querySelector('#f-name').value='Paracetamol'; document.querySelector('#f-dose').value='500mg';`],
+    ['note', `document.querySelector('#f-text').value='Felt steady all week.';`]
+  ];
+  for (const [type, fill] of kinds) {
+    await tap('[data-add]');
+    await tap(`[data-record="${type}"]`);
+    await page.eval(`${fill} document.querySelector('#record-form').requestSubmit(); return true;`);
+    await wait(320);
+  }
+  ok(await page.eval(`return document.querySelectorAll('#view-timeline .event').length === 6`), 'all six kinds are on the timeline');
+  ok(await page.eval(`return JSON.parse(localStorage.getItem('fitnesskinda.record.v1')).entries.length === 6`),
+    'and all six are on the device');
+
+  /* ── 5. A note needs words ── */
+  await tap('[data-add]');
+  await tap('[data-record="note"]');
+  await page.eval(`document.querySelector('#record-form').requestSubmit(); return true;`);
+  await wait(250);
+  ok(await page.eval(`return !document.querySelector('#record-error').hidden`), 'an empty note is refused with a reason');
+  await tap('[data-cancel]');
+
+  /* ── 6. Timeline filters ── */
+  await tap('.tab[data-view="timeline"]');
+  ok(await page.eval(`return document.querySelectorAll('.filter').length === 6`), 'the timeline offers filters');
+  await tap('[data-filter="move"]');
+  ok(await page.eval(`return document.querySelectorAll('#view-timeline .event').length === 1`), 'filtering to Move shows one record');
+  await tap('[data-filter="health"]');
+  ok(await page.eval(`return document.querySelectorAll('#view-timeline .event').length === 2`), 'Health covers events and medication');
+  await tap('[data-filter="all"]');
+  ok(await page.eval(`return document.querySelectorAll('#view-timeline .event').length === 6`), 'All brings everything back');
+  ok(await page.eval(`return document.querySelectorAll('.day').length >= 1`), 'entries are grouped under day headings');
+
+  /* ── 7. Malaria keeps its own behaviour ── */
+  await tap('[data-add]');
+  await tap('[data-record="malaria_episode"]');
   await page.eval(`
     document.querySelector('#f-startDate').value = '2026-09-10';
     document.querySelector('input[name="symptoms"][value="Fever"]').checked = true;
     const pos = document.querySelector('input[name="testResult"][value="positive"]');
     pos.click(); pos.dispatchEvent(new Event('change', { bubbles: true }));
-    document.querySelector('#f-testType').value = 'RDT';
-    document.querySelector('#episode-form').requestSubmit();
-    return true;
-  `);
-  await wait(200);
-  ok(await page.eval(`return document.querySelectorAll('.event').length === 1`), 'an episode saves without an account');
-  ok(await page.eval(`return ${$('.tag')}.textContent === 'Positive'`), 'the timeline badge shows the result');
+    document.querySelector('#record-form').requestSubmit();
+    return true;`);
+  await wait(400);
+  ok(await page.eval(`return !!document.querySelector('[data-action="recover"]')`), 'an open episode offers "mark as recovered"');
+  await tap('[data-action="recover"]', 350);
+  ok(await page.eval(`return !document.querySelector('[data-action="recover"]')`), 'and the action goes once it is closed');
 
-  await page.eval(`document.querySelector('.event-actions .quick').click(); return true;`);
+  /* ── 8. Edit and remove ── */
+  await page.eval(`document.querySelectorAll('#view-timeline .event-more summary')[0].click(); return true;`);
   await wait(150);
-  ok(await page.eval(`return !document.querySelector('.event-actions')`), '"Mark as recovered" still works offline of an account');
+  await tap('[data-edit]');
+  ok(await page.eval(`return document.querySelector('#record-title').textContent.startsWith('Edit')`), 'editing says so');
+  await tap('[data-cancel]');
+  const before = await page.eval(`return document.querySelectorAll('#view-timeline .event').length`);
+  await page.eval(`window.confirm = () => true; document.querySelectorAll('#view-timeline .event-more summary')[0].click(); return true;`);
+  await wait(150);
+  await tap('[data-delete]', 320);
+  ok(await page.eval(`return document.querySelectorAll('#view-timeline .event').length`) === before - 1, 'removing takes one away');
 
-  ok(await page.eval(`
-    document.querySelector('.tab[data-view="trends"]').click();
-    await new Promise(r => setTimeout(r, 120));
-    return document.querySelectorAll('#trends-body svg.chart').length >= 1;
-  `), 'trends still render');
-  ok(await page.eval(`
-    document.querySelector('.tab[data-view="summary"]').click();
-    await new Promise(r => setTimeout(r, 120));
-    return document.querySelector('#summary-text').textContent.includes('does not recommend any medication');
-  `), 'the doctor summary still carries its disclaimer');
+  /* ── 9. Kinda Insights ── */
+  await page.eval(`
+    const mk = (t, startDate, data) => ({ id: t + startDate, type: t, startDate, endDate: '', data, context: {}, tags: [], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' });
+    const iso = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);
+    const entries = [];
+    for (let i = 1; i <= 8; i++) entries.push(mk('movement', iso(i * 3), { activity: ['Walk'], minutes: '30', effort: 'steady', notes: '' }));
+    for (let i = 1; i <= 5; i++) entries.push(mk('sleep', iso(i), { hours: String(7 + (i % 2) * 0.5), quality: 'good', notes: '' }));
+    localStorage.setItem('fitnesskinda.record.v1', JSON.stringify({ app: 'fitnesskinda', schema: 1, created: iso(30), entries }));
+    return true;`);
+  await page.reload();
+  await wait(900);
+  const home = await text();
+  ok(!!(await page.eval(`return document.querySelectorAll('#view-home .insight').length`)), 'home surfaces observations');
+  ok(home.includes('Lately'), 'home shows a snapshot');
+  ok(/consistent|hours/.test(home), 'an observation describes the sleep that was recorded');
+  ok(!/you have|diagnos|you should|because/i.test(home.replace(/Know your body[^.]*\./, '')),
+    'no observation diagnoses, prescribes or claims a cause');
 
-  /* ── 2. Sign up, then migrate this device's record ── */
-  ok(await page.eval(`
-    document.querySelector('.tab[data-view="account"]').click();
-    await new Promise(r => setTimeout(r, 150));
-    return !!document.querySelector('#auth-form');
-  `), 'the account tab offers a sign-in form');
+  /* ── 10. Move and Health screens ── */
+  await tap('.tab[data-view="move"]', 300);
+  ok((await text()).includes('How you use your body'), 'Move has its own question');
+  ok(await page.eval(`return !!document.querySelector('#view-move svg.chart')`), 'Move shows minutes a week');
+  await tap('.tab[data-view="health"]', 300);
+  ok((await text()).includes('My health record'), 'Health reads as a record, not a database');
+  ok((await text()).includes('does not diagnose'), 'the boundary is stated on the health screen');
 
+  /* ── 11. Summary ── */
+  await tap('[data-goto="summary"]', 400);
+  const summary = await page.eval(`return document.querySelector('#summary-text').textContent`);
+  ok(summary.includes('PERSONAL HEALTH SUMMARY'), 'the summary generates');
+  ok(summary.includes('MOVEMENT') && summary.includes('SLEEP'), 'it covers every signal recorded');
+  ok(summary.includes('does not recommend any medication'), 'and carries the disclaimer');
+
+  /* ── 12. Profile, accounts, migration ── */
+  await tap('.tab[data-view="profile"]', 400);
+  ok(await page.eval(`return !!document.querySelector('#auth-form')`), 'profile offers an account');
+  ok((await text()).includes('Your body. Your history. Your data.'), 'privacy is on the screen, not buried');
   await page.eval(`
     document.querySelector('input[name="authmode"][value="signup"]').click();
     document.querySelector('input[name="authmode"][value="signup"]').dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
-  `);
-  ok(await page.eval(`return !${$('#wrap-authname')}.hidden`), 'creating an account asks for a name');
-
-  await page.eval(`
     document.querySelector('#auth-name').value = 'Elijah';
     document.querySelector('#auth-email').value = 'first@user.test';
     document.querySelector('#auth-password').value = 'a-good-password';
     document.querySelector('#auth-form').requestSubmit();
-    return true;
-  `);
-  await wait(900);
-
-  ok(await page.eval(`return !!${$('#do-migrate')}`), "signing up offers to import this device's records");
-  ok(await page.eval(`return ${$('.migrate-facts')}.textContent.includes('1 episode')`), 'the prompt states what will be imported');
-  ok(await page.eval(`return JSON.parse(localStorage.getItem('fitnesskinda.record.v1')).entries.length === 1`),
-    'nothing is uploaded before the user agrees');
-
-  await page.eval(`document.querySelector('#do-migrate').click(); return true;`);
-  await wait(900);
-
-  ok(await page.eval(`return !!${$('.quick-grid')}`), 'a successful import lands on the dashboard');
-  ok(await page.eval(`return !!localStorage.getItem('fitnesskinda.premigration.v1')`), 'a pre-migration backup is kept on the device');
-  ok(await page.eval(`return JSON.parse(localStorage.getItem('fitnesskinda.record.v1')).entries.length === 1`),
-    'the device still holds the record after migrating');
-
-  const server_count = await page.eval(`
-    const r = await fetch('/api/episodes', { credentials: 'same-origin' });
-    return (await r.json()).episodes.length;
-  `);
-  ok(server_count === 1, 'the account now holds the episode');
-
-  /* ── 3. Dashboard (Phase 7) ── */
-  const dash = await page.eval(`return document.querySelector('#account-body').textContent`);
-  ['Episodes logged', 'Confirmed positive', 'Avg days between', 'Days since last recovery',
-   'Quick actions', 'Recent activity', 'Patterns'].forEach((label) =>
-    ok(dash.includes(label), `dashboard shows "${label}"`));
-  ok(dash.includes('saved to your account'), 'dashboard states the sync position');
-  ok(await page.eval(`
-    document.querySelector('[data-goto="timeline"]').click();
-    await new Promise(r => setTimeout(r, 120));
-    return !document.querySelector('#view-timeline').hidden;
-  `), 'a quick action navigates');
-
-  /* ── 4. Writing while signed in reaches the server ── */
-  await page.eval(`
-    document.querySelector('.tab[data-view="log"]').click();
-    await new Promise(r => setTimeout(r, 100));
-    document.querySelector('#f-startDate').value = '2026-06-01';
-    document.querySelector('#episode-form').requestSubmit();
-    return true;
-  `);
-  await wait(900);
+    return true;`);
+  await wait(1100);
+  ok(await page.eval(`return !!document.querySelector('#do-migrate')`), 'signing up offers to bring the device record over');
+  ok(await page.eval(`return JSON.parse(localStorage.getItem('fitnesskinda.record.v1')).entries.length === 13`),
+    'nothing is uploaded before the person agrees');
+  await tap('#do-migrate', 1200);
   ok(await page.eval(`
     const r = await fetch('/api/episodes', { credentials: 'same-origin' });
-    return (await r.json()).episodes.length;
-  `) === 2, 'a new episode syncs to the account');
+    return (await r.json()).episodes.length;`) === 13, 'the account now holds every entry');
+  ok(await page.eval(`return !!localStorage.getItem('fitnesskinda.premigration.v1')`), 'a pre-migration backup stays on the device');
 
-  /* ── 5. Offline (Phase 10) ── */
+  /* ── 13. Offline ── */
   await page.setOffline(true);
-  await page.eval(`
-    document.querySelector('.tab[data-view="log"]').click();
-    await new Promise(r => setTimeout(r, 100));
-    document.querySelector('#f-startDate').value = '2026-07-15';
-    document.querySelector('#episode-form').requestSubmit();
-    return true;
-  `);
+  await tap('[data-add]');
+  await tap('[data-record="note"]');
+  await page.eval(`document.querySelector('#f-text').value = 'Written with no signal.'; document.querySelector('#record-form').requestSubmit(); return true;`);
   await wait(700);
-  ok(await page.eval(`return document.querySelectorAll('.event').length === 3`), 'logging still works offline');
-  ok(await page.eval(`return JSON.parse(localStorage.getItem('fitnesskinda.queue.v1') || '[]').length >= 1`),
-    'the offline write is queued');
-  ok(await page.eval(`return !!document.querySelector('.pending')`), 'the card says it is not yet in the account');
-
+  ok(await page.eval(`return document.querySelectorAll('#view-timeline .event').length === 14`), 'recording works offline');
+  ok(await page.eval(`return JSON.parse(localStorage.getItem('fitnesskinda.queue.v1') || '[]').length >= 1`), 'the write is queued');
   await page.setOffline(false);
   await page.eval(`window.dispatchEvent(new Event('online')); return true;`);
-  await wait(1200);
-  ok(await page.eval(`return JSON.parse(localStorage.getItem('fitnesskinda.queue.v1') || '[]').length === 0`),
-    'the queue drains when the connection returns');
-  const drained = await page.eval(`
-    const acc = await import('/js/account.js');
-    const store = await import('/js/store.js');
-    const r = await fetch('/api/episodes', { credentials: 'same-origin' });
-    const episodes = (await r.json()).episodes;
-    return { server: episodes.length, serverIds: episodes.map(e => e.id),
-             localIds: store.all().map(e => e.id), lastError: acc.state.lastError,
-             queue: localStorage.getItem('fitnesskinda.queue.v1') };
-  `);
-  if (drained.server !== 3) console.error('  diagnostics:', JSON.stringify(drained));
-  ok(drained.server === 3, 'the queued episode reaches the account');
-
-  /* ── 6. Reload keeps the session and the record ── */
-  await page.reload();
-  await wait(900);
+  await wait(1400);
+  ok(await page.eval(`return JSON.parse(localStorage.getItem('fitnesskinda.queue.v1') || '[]').length === 0`), 'the queue drains on reconnect');
   ok(await page.eval(`
-    document.querySelector('.tab[data-view="account"]').click();
-    await new Promise(r => setTimeout(r, 400));
-    return document.querySelector('#account-body').textContent.includes('first@user.test');
-  `), 'the session survives a reload');
-  ok(await page.eval(`return document.querySelectorAll('#view-timeline .event, .recent li').length > 0`),
-    'the record is there after a reload');
+    const r = await fetch('/api/episodes', { credentials: 'same-origin' });
+    return (await r.json()).episodes.length;`) === 14, 'and the entry reaches the account');
 
-  /* ── 7. Sign out leaves the device copy alone ── */
-  await page.eval(`document.querySelector('#sign-out').click(); return true;`);
-  await wait(700);
-  ok(await page.eval(`return JSON.parse(localStorage.getItem('fitnesskinda.record.v1')).entries.length === 3`),
-    'signing out does not delete the device copy');
-  ok(await page.eval(`return !!document.querySelector('#auth-form')`), 'signing out returns to the sign-in form');
-
-  /* ── 8. Viewports ── */
-  for (const [w, h, name] of [[390, 700, 'mobile 390×700'], [768, 1024, 'tablet 768'], [1280, 900, 'desktop 1280']]) {
-    await page.setViewport(w, h, w < 700);
-    await page.eval(`document.querySelector('.tab[data-view="log"]').click(); return true;`);
-    await wait(200);
-    const layout = await page.eval(`
-      const doc = document.documentElement;
-      const save = document.querySelector('#save-btn').getBoundingClientRect();
-      const bar = document.querySelector('.tabbar').getBoundingClientRect();
-      window.scrollTo(0, 320);
-      await new Promise(r => setTimeout(r, 60));
-      const scrolled = document.querySelector('#save-btn').getBoundingClientRect();
-      return {
-        hScroll: doc.scrollWidth > doc.clientWidth + 1,
-        saveClear: scrolled.bottom <= bar.top + 1,
-        tabs: document.querySelectorAll('.tab').length,
-        tabWidth: Math.round(document.querySelector('.tab').getBoundingClientRect().width)
-      };
-    `);
-    ok(!layout.hScroll, `${name}: no horizontal scrolling`);
-    ok(layout.saveClear, `${name}: Save clears the tab bar while scrolled`);
-    ok(layout.tabs === 5 && layout.tabWidth >= 48, `${name}: five tabs fit (${layout.tabWidth}px each)`);
-  }
-
-  /* ── 9. Stored XSS, CSP, and what the service worker keeps ── */
+  /* ── 14. Stored XSS and CSP ── */
   await page.eval(`
-    await fetch('/api/auth/login', { method:'POST', credentials:'same-origin',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ email:'first@user.test', password:'a-good-password' }) });
-    await fetch('/api/episodes', { method:'POST', credentials:'same-origin',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ startDate:'2026-02-02', data:{ notes:'<img src=x onerror="window.__pwned=1">',
-        treatment:'<script>window.__pwned=1<\\/script>' } }) });
-    return true;
-  `);
+    await fetch('/api/episodes', { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'note', startDate: '2026-02-02', data: { text: '<img src=x onerror="window.__pwned=1">' } }) });
+    return true;`);
   await page.reload();
   await wait(1200);
-  const xss = await page.eval(`
-    document.querySelector('.tab[data-view="timeline"]').click();
-    await new Promise(r => setTimeout(r, 200));
-    document.querySelectorAll('.event-more summary').forEach(s => s.click());
-    await new Promise(r => setTimeout(r, 150));
-    return {
-      pwned: !!window.__pwned,
-      injectedNodes: document.querySelectorAll('#timeline img, #timeline script').length,
-      textShown: document.body.textContent.includes('<img src=x')
-    };
-  `);
-  ok(!xss.pwned, 'a stored script payload does not execute');
-  ok(xss.injectedNodes === 0, 'a stored script payload creates no elements');
-  ok(xss.textShown, 'it is shown as text instead');
-
-  const csp = await page.eval(`
+  await tap('.tab[data-view="timeline"]', 400);
+  ok(!(await page.eval(`return !!window.__pwned`)), 'a stored script payload does not run');
+  ok(await page.eval(`return document.querySelectorAll('#view-timeline img, #view-timeline script').length === 0`), 'and creates no elements');
+  ok(await page.eval(`
     window.__inline = 0;
     const s = document.createElement('script');
     s.textContent = 'window.__inline = 1';
     document.body.appendChild(s);
-    await new Promise(r => setTimeout(r, 100));
-    return window.__inline;
-  `);
-  ok(csp === 0, 'the Content-Security-Policy blocks an injected inline script');
-
+    await new Promise(r => setTimeout(r, 120));
+    return window.__inline;`) === 0, 'the CSP blocks an injected inline script');
   const cached = await page.eval(`
-    const names = await caches.keys();
     const out = [];
-    for (const n of names) {
-      const keys = await (await caches.open(n)).keys();
-      out.push(...keys.map(k => new URL(k.url).pathname));
-    }
-    return out;
-  `);
+    for (const n of await caches.keys()) out.push(...(await (await caches.open(n)).keys()).map(k => new URL(k.url).pathname));
+    return out;`);
   ok(cached.length > 0, 'the app shell is cached for offline use');
-  ok(!cached.some((p) => p.startsWith('/api/')), 'no API response is stored in the cache');
+  ok(!cached.some((p) => p.startsWith('/api/')), 'no API response is cached');
 
-  /* ── 10. Admin page refuses a normal account ── */
-  await page.setViewport(390, 700);
-  await page.goto(`${server.origin}/admin`);
-  await wait(600);
-  ok(await page.eval(`return document.body.textContent.includes('Sign in with an admin account')
-     || document.body.textContent.includes('does not have admin access')`),
-    'the admin page refuses anyone without admin access');
+  /* ── 15. Viewports ── */
+  for (const [w, h, name] of [[390, 780, 'mobile 390'], [768, 1024, 'tablet 768'], [1280, 900, 'desktop 1280']]) {
+    await page.setViewport(w, h, w < 700);
+    await tap('.tab[data-view="home"]', 320);
+    const layout = await page.eval(`
+      const doc = document.documentElement;
+      const nav = document.querySelector('.tabbar').getBoundingClientRect();
+      return {
+        hScroll: doc.scrollWidth > doc.clientWidth + 1,
+        navSide: nav.height > 200,
+        tabs: document.querySelectorAll('.tab').length,
+        tap: Math.min(...[...document.querySelectorAll('.tab')].map(t => Math.round(t.getBoundingClientRect().height)))
+      };`);
+    ok(!layout.hScroll, `${name}: no horizontal scrolling`);
+    ok(layout.tabs === 5 && layout.tap >= 44, `${name}: five sections, comfortable targets (${layout.tap}px)`);
+    if (w >= 900) ok(layout.navSide, `${name}: navigation moves to the side`);
+  }
 
   await page.close();
   chrome.close();

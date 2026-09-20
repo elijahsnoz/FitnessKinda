@@ -338,6 +338,8 @@ export default {
   type: TYPE,
   label: 'Malaria episode',
   plural: 'Malaria episodes',
+  section: 'health',
+  icon: 'malaria',
   status: 'active',
   fields,
   toValues,
