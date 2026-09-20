@@ -7,12 +7,14 @@
  * Bump CACHE when any shell file changes, or browsers will keep serving the old one.
  */
 
-const CACHE = 'fitnesskinda-shell-v18';
+const CACHE = 'fitnesskinda-shell-v19';
 
 const SHELL = [
   './',
   'index.html',
   'styles.css',
+  'fonts/instrument-sans-latin.woff2',
+  'fonts/instrument-sans-latin-ext.woff2',
   'manifest.json',
   'icon.svg',
   'icon-tile.svg',

@@ -21,7 +21,8 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 /* ── Static files: an explicit allow-list, never a directory walk ── */
 const STATIC = new Set(['/index.html', '/admin.html', '/verify.html', '/reset.html', '/terms.html', '/privacy.html',
   '/styles.css', '/sw.js', '/manifest.json', '/icon.svg', '/icon-tile.svg',
-  '/og.png', '/robots.txt', '/sitemap.xml']);
+  '/og.png', '/robots.txt', '/sitemap.xml',
+  '/fonts/instrument-sans-latin.woff2', '/fonts/instrument-sans-latin-ext.woff2']);
 const ALIASES = { '/': '/index.html', '/admin': '/admin.html', '/verify': '/verify.html', '/reset': '/reset.html',
   '/terms': '/terms.html', '/privacy': '/privacy.html' };
 
@@ -34,7 +35,8 @@ const TYPES = {
   '.png': 'image/png',
   '.txt': 'text/plain; charset=utf-8',
   '.xml': 'application/xml; charset=utf-8',
-  '.webmanifest': 'application/manifest+json'
+  '.webmanifest': 'application/manifest+json',
+  '.woff2': 'font/woff2'
 };
 
 const SECURITY_HEADERS = {

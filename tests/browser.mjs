@@ -386,7 +386,30 @@ export default async function run() {
   ok(inlineStyles.length === 0,
     'no screen relies on a style attribute, which our CSP silently drops');
 
-  /* ── 17. Viewports ── */
+  /* ── 17. The brand typeface must actually arrive ──
+   * It shipped for months behind a Google CDN link that our own CSP refused, so
+   * every visitor silently got a system fallback and nothing failed loudly. Two
+   * things have to hold: the face really loads, and we still ask nobody else for it. */
+  await page.goto(server.origin);
+  await wait(900);
+  const typeface = await page.eval(`
+    await document.fonts.ready;
+    const faces = [...document.fonts];
+    return {
+      registered: faces.length,
+      loaded: faces.filter(f => f.status === 'loaded').length,
+      family: faces[0] ? faces[0].family : '(none)',
+      offOrigin: performance.getEntriesByType('resource')
+        .map(e => e.name).filter(u => !u.startsWith(location.origin))
+    };`);
+  ok(typeface.registered > 0 && typeface.family === 'Instrument Sans',
+    'the page registers the Instrument Sans face itself');
+  ok(typeface.loaded > 0, 'the typeface actually loads rather than falling back silently');
+  if (typeface.offOrigin.length) console.error('  off-origin:', typeface.offOrigin.join(' | '));
+  ok(typeface.offOrigin.length === 0,
+    'the app asks no other server for anything, as the privacy notice promises');
+
+  /* ── 18. Viewports ── */
   for (const [w, h, name] of [[390, 780, 'mobile 390'], [768, 1024, 'tablet 768'], [1280, 900, 'desktop 1280']]) {
     await page.setViewport(w, h, w < 700);
     await tap('.tab[data-view="home"]', 320);
