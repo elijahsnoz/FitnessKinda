@@ -60,6 +60,12 @@ export function renderProfile() {
           <input type="password" id="auth-password" autocomplete="current-password">
           <p class="hint">At least 8 characters.</p>
         </div>
+        <label class="consent" id="wrap-consent" hidden>
+          <input type="checkbox" id="auth-terms">
+          <span>I have read and accept the <a href="/terms" target="_blank" rel="noopener">terms of use</a>
+          and the <a href="/privacy" target="_blank" rel="noopener">privacy notice</a>, and I understand
+          that FitnessKinda does not give medical advice.</span>
+        </label>
         <p id="auth-error" class="error" role="alert" hidden></p>
         <div class="actions"><button type="submit" class="btn primary" id="auth-submit">Sign in</button></div>
       </form>`
@@ -98,12 +104,34 @@ export function renderProfile() {
       </div>`;
   }
 
+  const unverified = user.emailVerified === false;
+
   return `
     <h2 class="title" id="profile-title">${esc(user.name || user.email)}</h2>
     <p class="lede">${esc(syncLine())}.</p>
     ${lastError ? `<p class="error">${esc(lastError)}</p>` : ''}
+    ${unverified ? `<div class="note verify-note">
+      <div style="display:flex;gap:11px">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7h17v10h-17z"></path><path d="m3.5 7.5 8.5 6 8.5-6"></path></svg>
+        <div><p><strong>Confirm your email.</strong> We sent a link to ${esc(user.email)}.
+        Your account works either way; confirming it is what will let you recover the
+        account if you ever forget your password.</p></div>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn small" id="resend-verify">Send the link again</button>
+      </div>
+    </div>` : ''}
     ${record}
     ${data}
+    <div class="section-title">The small print</div>
+    <div class="card">
+      <p style="margin:0;font-size:14.5px;line-height:1.6;color:var(--text-soft)">
+        <a href="/terms" style="color:var(--teal-ink)">Terms of use</a> &middot;
+        <a href="/privacy" style="color:var(--teal-ink)">Privacy notice</a><br>
+        FitnessKinda does not give medical advice.
+      </p>
+    </div>
+
     <div class="section-title">Account</div>
     <div class="card">
       <p style="margin:0 0 14px;font-size:14.5px;color:var(--text-soft)">${esc(user.email)}</p>

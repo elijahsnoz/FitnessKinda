@@ -14,17 +14,17 @@ export default async function run() {
   ok((await stranger.get('/api/health')).body.status === 'ok', 'GET /api/health reports ok');
 
   /* ── signup ── */
-  let r = await alice.post('/api/auth/signup', { email: 'alice@example.com', name: 'Alice', password: 'a-good-password' });
+  let r = await alice.post('/api/auth/signup', { email: 'alice@example.com', name: 'Alice', password: 'a-good-password', acceptedTerms: true });
   ok(r.status === 200 && r.body.user.email === 'alice@example.com', 'signup creates an account');
   ok(!('passwordHash' in r.body.user), 'signup response carries no password hash');
   ok(/HttpOnly/i.test(r.headers.get('set-cookie') || ''), 'session cookie is HttpOnly');
   ok(/SameSite=Lax/i.test(r.headers.get('set-cookie') || ''), 'session cookie is SameSite=Lax');
 
-  r = await server.client().post('/api/auth/signup', { email: 'alice@example.com', name: 'Impostor', password: 'another-password' });
+  r = await server.client().post('/api/auth/signup', { email: 'alice@example.com', name: 'Impostor', password: 'another-password', acceptedTerms: true });
   ok(r.status === 400, 'duplicate email is refused');
-  r = await server.client().post('/api/auth/signup', { email: 'not-an-email', name: 'X', password: 'a-good-password' });
+  r = await server.client().post('/api/auth/signup', { email: 'not-an-email', name: 'X', password: 'a-good-password', acceptedTerms: true });
   ok(r.status === 400, 'invalid email is refused');
-  r = await server.client().post('/api/auth/signup', { email: 'x@y.co', name: 'X', password: 'short' });
+  r = await server.client().post('/api/auth/signup', { email: 'x@y.co', name: 'X', password: 'short', acceptedTerms: true });
   ok(r.status === 400, 'short password is refused');
 
   /* ── login ── */
@@ -87,8 +87,31 @@ export default async function run() {
   ok((await alice.patch(`/api/episodes/${id}`, { endDate: '2020-01-01' })).status === 400, 'PATCH still validates');
 
   /* ── user isolation ── */
-  await bob.post('/api/auth/signup', { email: 'bob@example.com', name: 'Bob', password: 'bobs-good-password' });
+  await bob.post('/api/auth/signup', { email: 'bob@example.com', name: 'Bob', password: 'bobs-good-password', acceptedTerms: true });
   ok((await bob.get('/api/episodes')).body.episodes.length === 0, 'a new account starts empty');
+
+  /* ── terms and verification ── */
+  const refused = await server.client().post('/api/auth/signup',
+    { email: 'noterms@example.com', name: 'No Terms', password: 'a-good-password' });
+  ok(refused.status === 400, 'signing up without accepting the terms is refused');
+  ok(/terms/i.test(refused.body.error || ''), 'and the reason says so');
+  ok(!(await server.client().get('/api/auth/me')).body.user, 'no account was created');
+
+  const dave = server.client();
+  const made = await dave.post('/api/auth/signup',
+    { email: 'dave@example.com', name: 'Dave', password: 'daves-password', acceptedTerms: true });
+  ok(made.body.user.emailVerified === false, 'a new account starts unverified');
+  ok((await dave.get('/api/episodes')).status === 200, 'but an unverified account still works fully');
+
+  const { get: dbGet2, all: dbAll2 } = await import('../server/db.js');
+  const terms = await dbGet2('SELECT termsAcceptedAt, termsVersion FROM users WHERE email = ?', ['dave@example.com']);
+  ok(!!terms.termsAcceptedAt && !!terms.termsVersion, 'when the terms were accepted is recorded, with the version');
+
+  const tokens = await dbAll2("SELECT * FROM email_tokens WHERE purpose = 'verify'");
+  ok(tokens.length >= 1, 'a verification token is issued at sign-up');
+  ok(!(await dave.post('/api/auth/verify', { token: 'made-up' })).body.user, 'a forged token verifies nothing');
+  ok((await dave.post('/api/auth/verify', { token: 'made-up' })).status === 400, 'and is refused');
+  ok((await server.client().post('/api/auth/resend-verification')).status === 401, 'resending needs a session');
   ok((await bob.get(`/api/episodes/${id}`)).status === 404, "another user cannot read Alice's episode");
   ok((await bob.patch(`/api/episodes/${id}`, { endDate: '2026-09-09' })).status === 404, "another user cannot edit it");
   ok((await bob.del(`/api/episodes/${id}`)).status === 404, 'another user cannot delete it');
@@ -102,7 +125,7 @@ export default async function run() {
 
   /* ── migration ── */
   const carol = server.client();
-  await carol.post('/api/auth/signup', { email: 'carol@example.com', name: 'Carol', password: 'carols-password' });
+  await carol.post('/api/auth/signup', { email: 'carol@example.com', name: 'Carol', password: 'carols-password', acceptedTerms: true });
   const local = [
     { id: 'local-1', type: 'malaria_episode', startDate: '2025-05-14', endDate: '2025-05-21', data: { symptoms: ['Fever'], testResult: 'positive', testType: 'RDT' }, context: {}, tags: [] },
     { id: 'local-2', type: 'malaria_episode', startDate: '2026-04-08', endDate: '', data: { testResult: 'not_tested' }, context: {}, tags: [] }
@@ -151,7 +174,7 @@ export default async function run() {
   const { run: dbRun } = await import('../server/db.js');
   await dbRun("UPDATE users SET role = 'admin' WHERE email = 'alice@example.com'");
   r = await alice.get('/api/admin/metrics');
-  ok(r.status === 200 && r.body.users.total === 3, 'an admin reads aggregate metrics');
+  ok(r.status === 200 && r.body.users.total === 4, 'an admin reads aggregate metrics');
   const blob = JSON.stringify(r.body);
   ok(!/travelled|Fever|Chills|alice@example\.com|bob@example\.com/.test(blob), 'admin metrics contain no health data and no emails');
   ok(typeof r.body.usage.confirmedPositive === 'number' && Array.isArray(r.body.daily), 'admin metrics are counts only');

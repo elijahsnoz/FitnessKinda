@@ -5,10 +5,23 @@ import * as repo from './repo.js';
 import * as auth from './auth.js';
 import { adminMetrics } from './metrics.js';
 import { validateCredentials } from './validate.js';
+import { sendVerification, canSend } from './email.js';
+import { config } from './config.js';
 import { dbStatus } from './db.js';
 import { badRequest, forbidden, notFound, unauthorised } from './util.js';
 import { summaryText } from '../js/summary.js';
 import { DOMAINS } from '../js/registry.js';
+
+/** Issues a token and emails the link. Silent when email is not configured. */
+async function offerVerification(user, origin) {
+  const token = await auth.issueEmailToken(user.id, 'verify');
+  const base = config.email.publicUrl || origin || '';
+  await sendVerification({
+    to: user.email,
+    name: user.name,
+    url: `${base}/verify?token=${encodeURIComponent(token)}`
+  });
+}
 
 /** Adapter so the shared summary generator can read from the database. */
 const dbSource = (entries) => ({
@@ -32,12 +45,14 @@ export const routes = [
     method: 'POST',
     path: '/api/auth/signup',
     auth: false,
-    handler: async ({ body, ip }) => {
+    handler: async ({ body, ip, origin }) => {
       auth.throttle(`signup:${ip}`, { limit: 10, windowMs: 60 * 60 * 1000 });
-      const creds = validateCredentials(body, { requireName: true });
+      const creds = validateCredentials(body, { requireName: true, requireTerms: true });
       const user = await auth.createUser(creds);
       const { token, expires } = await auth.createSession(user.id);
-      return ok({ user }, { cookie: auth.sessionCookie(token, expires) });
+      // A failed send must never cost someone their account.
+      await offerVerification(user, origin).catch(() => {});
+      return ok({ user, verificationSent: canSend() }, { cookie: auth.sessionCookie(token, expires) });
     }
   },
   {
@@ -66,6 +81,28 @@ export const routes = [
     path: '/api/auth/me',
     auth: false,
     handler: ({ user }) => ok({ user: user || null })
+  },
+
+  {
+    method: 'POST',
+    path: '/api/auth/verify',
+    auth: false,
+    handler: async ({ body }) => {
+      const userId = await auth.consumeEmailToken(String(body?.token || ''), 'verify');
+      const user = await auth.markEmailVerified(userId);
+      return ok({ user });
+    }
+  },
+  {
+    method: 'POST',
+    path: '/api/auth/resend-verification',
+    auth: true,
+    handler: async ({ user, ip, origin }) => {
+      auth.throttle(`verify:${ip}`, { limit: 5, windowMs: 60 * 60 * 1000 });
+      if (user.emailVerified) return ok({ alreadyVerified: true });
+      await offerVerification(user, origin);
+      return ok({ sent: canSend() });
+    }
   },
 
   /* ── Episodes ── */

@@ -231,6 +231,20 @@ function init() {
       return;
     }
 
+    if (el.id === 'resend-verify') {
+      el.disabled = true;
+      el.textContent = 'Sending…';
+      try {
+        const { sent } = await (await import('./api.js')).api.resendVerification();
+        toast(sent ? 'Link sent. Check your email.' : 'Email is not switched on yet for this site.');
+      } catch (err) {
+        toast(err.message || 'Could not send it just now.');
+      }
+      el.disabled = false;
+      el.textContent = 'Send the link again';
+      return;
+    }
+
     if (el.id === 'sign-out') {
       await account.logout();
       render();
@@ -257,12 +271,21 @@ function init() {
 
     event.preventDefault();
     const mode = ($('input[name="authmode"]:checked') || {}).value || 'login';
+    const box = $('#auth-error');
+
+    if (mode === 'signup' && !$('#auth-terms').checked) {
+      box.textContent = 'Please accept the terms and the privacy notice to continue.';
+      box.hidden = false;
+      return;
+    }
+
     const payload = {
       email: $('#auth-email').value.trim(),
       password: $('#auth-password').value,
-      ...(mode === 'signup' ? { name: $('#auth-name').value.trim() } : {})
+      ...(mode === 'signup'
+        ? { name: $('#auth-name').value.trim(), acceptedTerms: $('#auth-terms').checked }
+        : {})
     };
-    const box = $('#auth-error');
     const button = $('#auth-submit');
     box.hidden = true;
     button.disabled = true;
@@ -283,6 +306,7 @@ function init() {
     if (event.target.name === 'authmode') {
       const signup = event.target.value === 'signup';
       $('#wrap-authname').hidden = !signup;
+      $('#wrap-consent').hidden = !signup;
       $('#auth-submit').textContent = signup ? 'Create account' : 'Sign in';
       $('#auth-password').autocomplete = signup ? 'new-password' : 'current-password';
       return;

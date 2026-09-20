@@ -35,6 +35,8 @@ export const api = {
   signup: (payload) => request('POST', '/api/auth/signup', payload),
   login: (payload) => request('POST', '/api/auth/login', payload),
   logout: () => request('POST', '/api/auth/logout', {}),
+  verifyEmail: (token) => request('POST', '/api/auth/verify', { token }),
+  resendVerification: () => request('POST', '/api/auth/resend-verification', {}),
 
   listEpisodes: () => request('GET', '/api/episodes'),
   createEpisode: (entry) => request('POST', '/api/episodes', entry),

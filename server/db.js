@@ -65,6 +65,25 @@ const MIGRATIONS = [
          kind    TEXT NOT NULL
        )`
     ]
+  },
+  {
+    id: '002-verification-and-terms',
+    statements: [
+      /* An unverified account is a working account. Verification exists so a
+       * password reset has a trustworthy address to send to, not as a gate. */
+      `ALTER TABLE users ADD COLUMN emailVerifiedAt TEXT`,
+      `ALTER TABLE users ADD COLUMN termsAcceptedAt TEXT`,
+      `ALTER TABLE users ADD COLUMN termsVersion TEXT`,
+      `CREATE TABLE email_tokens (
+         tokenHash  TEXT PRIMARY KEY,
+         userId     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+         purpose    TEXT NOT NULL,
+         createdAt  TEXT NOT NULL,
+         expiresAt  TEXT NOT NULL,
+         usedAt     TEXT
+       )`,
+      `CREATE INDEX idx_email_tokens_user ON email_tokens (userId, purpose)`
+    ]
   }
 ];
 

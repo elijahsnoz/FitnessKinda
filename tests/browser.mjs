@@ -162,9 +162,28 @@ export default async function run() {
   await page.eval(`
     document.querySelector('input[name="authmode"][value="signup"]').click();
     document.querySelector('input[name="authmode"][value="signup"]').dispatchEvent(new Event('change', { bubbles: true }));
+    return true;`);
+  await wait(200);
+  ok(await page.eval(`return !document.querySelector('#wrap-consent').hidden`), 'creating an account asks you to accept the terms');
+  ok(await page.eval(`return !!document.querySelector('#wrap-consent a[href="/terms"]') && !!document.querySelector('#wrap-consent a[href="/privacy"]')`),
+    'both documents are linked from the box');
+  await page.eval(`
     document.querySelector('#auth-name').value = 'Elijah';
     document.querySelector('#auth-email').value = 'first@user.test';
     document.querySelector('#auth-password').value = 'a-good-password';
+    document.querySelector('#auth-form').requestSubmit();
+    return true;`);
+  await wait(500);
+  ok(await page.eval(`return !document.querySelector('#auth-error').hidden`), 'signing up without accepting is refused in the browser');
+  ok(!(await page.eval(`return !!document.querySelector('#do-migrate')`)), 'and no account is created');
+
+  await page.eval(`
+    document.querySelector('input[name="authmode"][value="signup"]').click();
+    document.querySelector('input[name="authmode"][value="signup"]').dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector('#auth-name').value = 'Elijah';
+    document.querySelector('#auth-email').value = 'first@user.test';
+    document.querySelector('#auth-password').value = 'a-good-password';
+    document.querySelector('#auth-terms').checked = true;
     document.querySelector('#auth-form').requestSubmit();
     return true;`);
   await wait(1100);
@@ -176,6 +195,8 @@ export default async function run() {
     const r = await fetch('/api/episodes', { credentials: 'same-origin' });
     return (await r.json()).episodes.length;`) === 13, 'the account now holds every entry');
   ok(await page.eval(`return !!localStorage.getItem('fitnesskinda.premigration.v1')`), 'a pre-migration backup stays on the device');
+  ok((await text()).includes('Confirm your email'), 'an unverified account is asked to confirm, not blocked');
+  ok(await page.eval(`return !!document.querySelector('#resend-verify')`), 'and can ask for the link again');
 
   /* ── 13. Offline ── */
   await page.setOffline(true);
@@ -218,7 +239,22 @@ export default async function run() {
   ok(cached.length > 0, 'the app shell is cached for offline use');
   ok(!cached.some((p) => p.startsWith('/api/')), 'no API response is cached');
 
-  /* ── 15. Viewports ── */
+  /* ── 15. The documents behind the checkbox ── */
+  await page.goto(`${server.origin}/terms`);
+  await wait(400);
+  ok((await text()).includes('not medical advice'), 'the terms lead with what this is not');
+  ok((await text()).includes('no password reset yet'), 'and are honest about what is missing');
+  await page.goto(`${server.origin}/privacy`);
+  await wait(400);
+  ok((await text()).includes('Your body. Your history. Your data.'), 'the privacy notice opens with the promise');
+  ok((await text()).includes('We run no analytics'), 'and states what is not done');
+  await page.goto(`${server.origin}/verify`);
+  await wait(500);
+  ok((await text()).includes('incomplete'), 'the verify page handles a missing token gracefully');
+  await page.goto(server.origin);
+  await wait(900);
+
+  /* ── 16. Viewports ── */
   for (const [w, h, name] of [[390, 780, 'mobile 390'], [768, 1024, 'tablet 768'], [1280, 900, 'desktop 1280']]) {
     await page.setViewport(w, h, w < 700);
     await tap('.tab[data-view="home"]', 320);

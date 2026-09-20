@@ -9,8 +9,8 @@ export default async function run() {
 
   const alice = server.client();
   const mallory = server.client();
-  await alice.post('/api/auth/signup', { email: 'alice@sec.test', name: 'Alice', password: 'alice-password' });
-  await mallory.post('/api/auth/signup', { email: 'mallory@sec.test', name: 'Mallory', password: 'mallory-password' });
+  await alice.post('/api/auth/signup', { email: 'alice@sec.test', name: 'Alice', password: 'alice-password', acceptedTerms: true });
+  await mallory.post('/api/auth/signup', { email: 'mallory@sec.test', name: 'Mallory', password: 'mallory-password', acceptedTerms: true });
 
   const created = await alice.post('/api/episodes', {
     startDate: '2026-08-01', data: { testResult: 'positive', notes: 'SECRET-SYMPTOM-NOTE' }
@@ -38,7 +38,7 @@ export default async function run() {
     "the other user's episode is untouched");
 
   /* ── Roles cannot be self-granted ── */
-  r = await mallory.post('/api/auth/signup', { email: 'admin2@sec.test', name: 'X', password: 'password-here', role: 'admin' });
+  r = await mallory.post('/api/auth/signup', { email: 'admin2@sec.test', name: 'X', password: 'password-here', acceptedTerms: true, role: 'admin' });
   const sneaky = await dbGet('SELECT role FROM users WHERE email = ?', ['admin2@sec.test']);
   ok(!sneaky || sneaky.role === 'user', 'a signup cannot ask for the admin role');
   ok((await mallory.get('/api/admin/metrics')).status === 403, 'a normal account cannot read admin metrics');
@@ -89,6 +89,10 @@ export default async function run() {
   ok(!/"userId"|"id":/.test(blob), 'admin metrics expose no user or entry identifiers');
 
   /* ── Sessions end ── */
+  /* A verification token must be stored hashed, like a session. */
+  const liveTokens = await dbAll("SELECT tokenHash FROM email_tokens");
+  ok(liveTokens.every((t) => t.tokenHash.length === 64), 'email tokens are stored as hashes, not as links');
+
   await alice.post('/api/auth/logout');
   ok((await alice.get('/api/episodes')).status === 401, 'a logged-out session cannot read records');
   ok((await dbCount('SELECT COUNT(*) FROM sessions WHERE userId = ?', [row.id])) === 0,

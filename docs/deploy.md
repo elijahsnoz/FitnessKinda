@@ -18,6 +18,10 @@ and the migrations are unchanged, and running locally still uses a plain file.
 | `ALLOWED_ORIGINS` | Vercel | `https://fitnesskinda.fit` |
 | `ADMIN_EMAILS` | Vercel | who may open `/admin` |
 | `ACCESS_LOG` | Vercel | `1` to log method, route and status |
+| `RESEND_API_KEY` | Vercel | a Resend key. **Secret.** Without it nothing is emailed |
+| `EMAIL_FROM` | Vercel | `FitnessKinda <hello@fitnesskinda.fit>` |
+| `PUBLIC_URL` | Vercel | `https://www.fitnesskinda.fit`, where verification links point |
+| `TERMS_VERSION` | Vercel | recorded against every sign-up; bump when the terms change |
 | `NODE_ENV` | — | Vercel sets `production` itself, which marks the cookie `Secure` |
 
 Locally, leave `TURSO_DATABASE_URL` unset and the app uses `data/fitnesskinda.db`.
@@ -60,6 +64,23 @@ curl https://<your-deployment>.vercel.app/api/health
 ```
 
 If `database` says `error`, the Turso URL or token is wrong. That is the usual first failure.
+
+## 2b. Email
+
+Account email goes through Resend. Until it is configured the app still works:
+sign-up succeeds, the account is created unverified, and the link is written to the
+server log instead of being sent.
+
+1. Create a Resend account and **add fitnesskinda.fit as a sending domain**.
+2. Resend gives DKIM and SPF records. Add them in Namecheap under **Advanced DNS**,
+   alongside the records already there. The existing SPF for email forwarding and a
+   Resend SPF cannot both live at the apex as separate TXT records: merge them into
+   one `v=spf1 ... include:... ~all` line, or send from a subdomain such as
+   `mail.fitnesskinda.fit`, which is the simpler route.
+3. Wait for Resend to show the domain as verified.
+4. Set `RESEND_API_KEY`, `EMAIL_FROM` and `PUBLIC_URL` in Vercel, then redeploy.
+
+Nothing sent by email contains health information. The only content is a name and a link.
 
 ## 3. Domain
 
@@ -156,7 +177,10 @@ never request bodies, symptoms, notes or email addresses.
 
 - Backups are manual. Nothing runs them on a schedule.
 - No staging environment. `main` deploys straight to the site people use.
-- No password reset, so a lost password means a lost account.
+- **No password reset.** A lost password still means a lost account; email
+  verification is the groundwork for fixing that, not the fix itself.
+- Email verification does not gate anything. An unverified account works fully, by
+  design: nobody should be locked out of their own health record over an unread email.
 - The dump file contains password hashes; there is no encryption around it.
 
 These are prototype limits, not oversights. Fix them when there is more than one user.

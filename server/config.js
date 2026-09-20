@@ -32,6 +32,18 @@ export const config = {
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean),
 
+  /* Email. With no key the sender logs instead of sending, so development and
+   * tests need no account. */
+  email: {
+    apiKey: env.RESEND_API_KEY || '',
+    from: env.EMAIL_FROM || '',
+    // Where verification links point. Falls back to the request's own origin.
+    publicUrl: (env.PUBLIC_URL || '').replace(/\/$/, '')
+  },
+
+  /* The terms a new account agrees to. Bump this when they change materially. */
+  termsVersion: env.TERMS_VERSION || '2026-09-20',
+
   // Requests that change data must come from this origin (CSRF defence).
   allowedOrigins: (env.ALLOWED_ORIGINS || '')
     .split(',')

@@ -102,7 +102,7 @@ export function validateEntry(payload, { partial = false, existing = null } = {}
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-export function validateCredentials({ email, name, password }, { requireName = false } = {}) {
+export function validateCredentials({ email, name, password, acceptedTerms }, { requireName = false, requireTerms = false } = {}) {
   const cleanEmail = String(email || '').trim().toLowerCase();
   if (!EMAIL.test(cleanEmail) || cleanEmail.length > 254) throw badRequest('Enter a valid email address.');
 
@@ -113,5 +113,9 @@ export function validateCredentials({ email, name, password }, { requireName = f
   let cleanName = String(name || '').trim().slice(0, 80);
   if (requireName && cleanName.length < 1) throw badRequest('Enter your name.');
 
-  return { email: cleanEmail, name: cleanName, password: pw };
+  if (requireTerms && acceptedTerms !== true) {
+    throw badRequest('Please accept the terms and the privacy notice to continue.');
+  }
+
+  return { email: cleanEmail, name: cleanName, password: pw, acceptedTerms: acceptedTerms === true };
 }

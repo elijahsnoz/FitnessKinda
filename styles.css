@@ -384,6 +384,35 @@ textarea { resize: vertical; line-height: 1.5; }
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
 }
 
+/* ── Long-form pages: terms, privacy, the verify landing ───────── */
+
+body.doc { padding-bottom: 0; }
+body.doc main { max-width: 640px; padding: 40px 20px 72px; }
+.doc-back { margin: 0 0 26px; font-size: 14px; }
+.doc-back a { color: var(--teal-ink); }
+.prose { margin-top: 26px; }
+.prose h2 { margin: 34px 0 10px; font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
+.prose p, .prose li { font-size: 15px; line-height: 1.65; color: var(--text-soft); }
+.prose p { margin: 0 0 14px; }
+.prose ul { margin: 0 0 16px; padding-left: 20px; }
+.prose li { margin-bottom: 8px; }
+.prose strong { color: var(--text); font-weight: 600; }
+.prose a { color: var(--teal-ink); }
+
+/* The terms box on the sign-up form. */
+.consent {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin: 0 0 22px; padding: 14px 16px;
+  background: var(--sand); border-radius: var(--radius);
+  font-size: 14px; line-height: 1.5; color: var(--text-soft);
+}
+.consent input { flex: 0 0 auto; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--teal); }
+.consent a { color: var(--teal-ink); }
+
+/* An unverified address: a quiet note, never a wall. */
+.verify-note { display: flex; flex-direction: column; gap: 12px; }
+.verify-note .actions { margin: 0; }
+
 /* ── Navigation ────────────────────────────────────────────────── */
 
 .tabbar {
