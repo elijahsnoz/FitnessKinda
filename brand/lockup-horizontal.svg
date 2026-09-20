@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" width="400" height="100" role="img" aria-labelledby="t d">
+  <title id="t">FitnessKinda</title>
+  <desc id="d">FitnessKinda symbol: a balloon floating above a body drawn in open strokes that close into a heart in the eye.</desc>
+  <g transform="translate(0 4) scale(0.8)"><circle cx="49" cy="10" r="7" fill="none" stroke="#E2553A" stroke-width="6"/>
+  <path d="M10 37C22 26 32 30 41.5 28.5" fill="none" stroke="#16150F" stroke-width="5" stroke-linecap="round"/>
+  <path d="M88 15C79 26 68 29 57 28.5" fill="none" stroke="#16150F" stroke-width="5" stroke-linecap="round"/>
+  <path d="M49 25c-9 6 9 9 0 15-9 6 9 9 0 14" fill="none" stroke="#16150F" stroke-width="5" stroke-linecap="round"/>
+  <path d="M49 54C43.5 46.5 31 45 25 52.5 19 60 23.5 72 36 83 41.5 87.5 45.5 90 47.5 93" fill="none" stroke="#16150F" stroke-width="5" stroke-linecap="round"/>
+  <path d="M49 54C54.5 46 67 44 73.5 52 80 60 75 72.5 62 83.5 56.5 88 52.5 90.5 51 93.5" fill="none" stroke="#16150F" stroke-width="5" stroke-linecap="round"/></g>
+  <text x="100" y="63" font-family="Instrument Sans, -apple-system, Helvetica Neue, Arial, sans-serif" font-weight="600" letter-spacing="-0.035em" font-size="42" fill="#16150F">FitnessKinda</text>
+</svg>
