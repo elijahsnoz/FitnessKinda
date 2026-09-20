@@ -88,6 +88,19 @@ export default async function run() {
   ok(!/SECRET-SYMPTOM-NOTE|LOG-LEAK-CANARY|Fever|@sec\.test/.test(blob), 'admin metrics expose no health data and no emails');
   ok(!/"userId"|"id":/.test(blob), 'admin metrics expose no user or entry identifiers');
 
+  /* The registered list is account metadata and nothing else. */
+  const listed = await alice.get('/api/admin/users');
+  ok(listed.status === 200 && Array.isArray(listed.body.users), 'an admin can list registered accounts');
+  const peopleBlob = JSON.stringify(listed.body);
+  ok(!/SECRET-SYMPTOM-NOTE|LOG-LEAK-CANARY|Fever|symptoms|testResult|startDate/.test(peopleBlob),
+    'the list carries no health content of any kind');
+  ok(!/passwordHash|scrypt/.test(peopleBlob), 'and no password material');
+  ok(listed.body.users.every((u) => typeof u.entries === 'number'),
+    'it counts entries rather than describing them');
+  ok(!('data' in (listed.body.users[0] || {})), 'no entry payload rides along');
+  ok((await mallory.get('/api/admin/users')).status === 403, 'a normal account cannot list registered people');
+  ok((await server.client().get('/api/admin/users')).status === 401, 'and an anonymous one cannot either');
+
   /* ── Sessions end ── */
   /* A verification token must be stored hashed, like a session. */
   const liveTokens = await dbAll("SELECT tokenHash FROM email_tokens");

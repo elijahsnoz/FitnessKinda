@@ -3,13 +3,26 @@
  * looking at a person's record. */
 
 import { api, ApiError } from './api.js';
-import { esc } from './util.js';
+import { esc, fmtDate, relativeDay } from './util.js';
 
 const body = document.getElementById('admin-body');
 
+const KIND = {
+  health_event: 'Health events',
+  movement: 'Movement',
+  sleep: 'Sleep',
+  measurement: 'Measurements',
+  medication: 'Medications',
+  malaria_episode: 'Malaria episodes',
+  note: 'Notes'
+};
+
 const tiles = (pairs) =>
-  `<div class="stats">${pairs
-    .map(([label, value]) => `<div class="stat"><b>${esc(String(value))}</b><span>${esc(label)}</span></div>`)
+  `<div class="snapshot">${pairs
+    .map(([label, value]) => `<div class="snap">
+      <span class="snap-label">${esc(label)}</span>
+      <b class="snap-value">${esc(String(value))}</b>
+    </div>`)
     .join('')}</div>`;
 
 function bars(daily) {
@@ -26,8 +39,31 @@ function bars(daily) {
     .join('')}</ul>`;
 }
 
-function render(m) {
+/* People, as account metadata. Nothing here is health content, and there is no
+ * route from this page into anyone's record. */
+function people(users) {
+  if (!users.length) return '<p class="hint">Nobody has registered yet.</p>';
+
+  return `<ul class="people">${users.map((u) => `
+    <li class="person">
+      <div class="person-main">
+        <p class="person-name">${esc(u.name || 'No name given')}${u.role === 'admin' ? ' <span class="tag tone-calm">Admin</span>' : ''}</p>
+        <p class="person-email">${esc(u.email)}</p>
+      </div>
+      <div class="person-facts">
+        <span class="${u.emailVerified ? 'is-yes' : 'is-no'}">${u.emailVerified ? 'Email confirmed' : 'Not confirmed'}</span>
+        <span>${u.entries} ${u.entries === 1 ? 'entry' : 'entries'}</span>
+        <span>Joined ${esc(fmtDate(u.joinedAt.slice(0, 10)))}</span>
+        <span>${u.lastActiveAt ? `Active ${esc(relativeDay(u.lastActiveAt.slice(0, 10)))}` : 'No activity yet'}</span>
+      </div>
+    </li>`).join('')}</ul>`;
+}
+
+function render(m, users) {
   body.innerHTML = `
+    <h2 class="view-title">Registered</h2>
+    <div class="card">${people(users)}</div>
+
     <h2 class="view-title">Users</h2>
     ${tiles([
       ['Total users', m.users.total],
@@ -38,13 +74,18 @@ function render(m) {
 
     <h2 class="view-title">Usage</h2>
     ${tiles([
-      ['Episodes logged', m.usage.episodes],
-      ['Confirmed positive', m.usage.confirmedPositive],
-      ['Tests recorded', m.usage.tested],
-      ['Recovery recorded', m.usage.withRecovery],
-      ['Ongoing episodes', m.usage.ongoing],
-      ['Logged (7 days)', m.usage.loggedLast7]
+      ['Entries kept', m.usage.entries],
+      ['Last 7 days', m.usage.loggedLast7],
+      ['Last 30 days', m.usage.loggedLast30],
+      ['Open health events', m.usage.openEvents]
     ])}
+
+    <h2 class="view-title">What people record</h2>
+    <div class="card">
+      ${m.byType.length
+        ? `<ul class="obs">${m.byType.map((t) => `<li>${esc(KIND[t.type] || t.type)} &middot; ${t.n}</li>`).join('')}</ul>`
+        : '<p class="hint">Nothing recorded yet.</p>'}
+    </div>
 
     <h2 class="view-title">Daily activity</h2>
     <div class="card">${bars(m.daily)}</div>
@@ -71,9 +112,8 @@ function render(m) {
     </div>`;
 }
 
-api
-  .adminMetrics()
-  .then(render)
+Promise.all([api.adminMetrics(), api.adminUsers()])
+  .then(([metrics, { users }]) => render(metrics, users))
   .catch((err) => {
     const message =
       err instanceof ApiError && err.status === 401

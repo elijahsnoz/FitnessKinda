@@ -242,6 +242,13 @@ export default async function run() {
   ok(typeof r.body.usage.confirmedPositive === 'number' && Array.isArray(r.body.daily), 'admin metrics are counts only');
   ok(r.body.system.database.ok === true, 'admin metrics report database status');
 
+  const roster = await alice.get('/api/admin/users');
+  ok(roster.status === 200 && roster.body.users.length === realTotal, 'an admin lists every registered account');
+  const sample = roster.body.users[0];
+  ok(['id','name','email','role','joinedAt','emailVerified','acceptedTerms','entries','lastActiveAt']
+      .every((k) => k in sample) && Object.keys(sample).length === 9,
+    'each row is account metadata and exactly that');
+
   /* ── logout ── */
   ok((await alice.post('/api/auth/logout')).status === 200, 'logout succeeds');
   ok((await alice.get('/api/episodes')).status === 401, 'the session is dead after logout');

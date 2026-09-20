@@ -3,7 +3,7 @@
 
 import * as repo from './repo.js';
 import * as auth from './auth.js';
-import { adminMetrics } from './metrics.js';
+import { adminMetrics, adminUsers } from './metrics.js';
 import { validateCredentials } from './validate.js';
 import { sendVerification, sendPasswordReset, canSend } from './email.js';
 import { config } from './config.js';
@@ -232,6 +232,15 @@ export const routes = [
   },
 
   /* ── Admin: aggregate counters only ── */
+  {
+    method: 'GET',
+    path: '/api/admin/users',
+    auth: true,
+    handler: async ({ user }) => {
+      if (user.role !== 'admin') throw forbidden('Admin access only.');
+      return ok({ users: await adminUsers() });
+    }
+  },
   {
     method: 'GET',
     path: '/api/admin/metrics',

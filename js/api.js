@@ -46,7 +46,8 @@ export const api = {
   deleteEpisode: (id) => request('DELETE', `/api/episodes/${encodeURIComponent(id)}`),
 
   migrate: (entries) => request('POST', '/api/migrate', { entries }),
-  adminMetrics: () => request('GET', '/api/admin/metrics')
+  adminMetrics: () => request('GET', '/api/admin/metrics'),
+  adminUsers: () => request('GET', '/api/admin/users')
 };
 
 export { ApiError };

@@ -32,14 +32,18 @@ export async function adminMetrics() {
   };
 
   const usage = {
-    episodes: await one("SELECT COUNT(*) FROM health_entries WHERE type = 'malaria_episode'"),
-    confirmedPositive: await one("SELECT COUNT(*) FROM health_entries WHERE json_extract(data, '$.testResult') = 'positive'"),
-    tested: await one("SELECT COUNT(*) FROM health_entries WHERE json_extract(data, '$.testResult') IN ('positive','negative')"),
-    withRecovery: await one("SELECT COUNT(*) FROM health_entries WHERE endDate != ''"),
-    ongoing: await one("SELECT COUNT(*) FROM health_entries WHERE endDate = ''"),
+    entries: await one('SELECT COUNT(*) FROM health_entries'),
     loggedLast7: await one('SELECT COUNT(*) FROM health_entries WHERE createdAt >= ?', daysAgo(7)),
-    loggedLast30: await one('SELECT COUNT(*) FROM health_entries WHERE createdAt >= ?', daysAgo(30))
+    loggedLast30: await one('SELECT COUNT(*) FROM health_entries WHERE createdAt >= ?', daysAgo(30)),
+    openEvents: await one("SELECT COUNT(*) FROM health_entries WHERE endDate = '' AND type IN ('health_event','malaria_episode','medication')"),
+    confirmedPositive: await one("SELECT COUNT(*) FROM health_entries WHERE json_extract(data, '$.testResult') = 'positive'")
   };
+
+  /* Which signals people actually use, across everybody. A count per kind, never
+   * per person: how one individual's record is shaped says things about them. */
+  const byType = (await all(
+    'SELECT type, COUNT(*) AS n FROM health_entries GROUP BY type ORDER BY n DESC'
+  )).map((r) => ({ type: r.type, n: Number(r.n) }));
 
   // Entries created per day for the last fortnight — a count and a date, nothing else.
   const daily = (await all(
@@ -59,6 +63,7 @@ export async function adminMetrics() {
   return {
     users,
     usage,
+    byType,
     daily,
     errors,
     system: {
@@ -70,6 +75,39 @@ export async function adminMetrics() {
       generatedAt: new Date().toISOString()
     }
   };
+}
+
+/**
+ * The registered people, as account metadata only.
+ *
+ * Deliberately no health content: not a symptom, not a note, not a measurement,
+ * and no per-signal breakdown either, because the shape of someone's record says
+ * things about them. An entry count and a last-active date are enough to run the
+ * product and answer a support question.
+ */
+export async function adminUsers({ limit = 200 } = {}) {
+  const rows = await all(
+    `SELECT u.id, u.email, u.name, u.role, u.createdAt, u.emailVerifiedAt, u.termsAcceptedAt,
+            (SELECT COUNT(*) FROM health_entries e WHERE e.userId = u.id) AS entries,
+            (SELECT MAX(e.updatedAt) FROM health_entries e WHERE e.userId = u.id) AS lastEntryAt,
+            (SELECT MAX(s.createdAt) FROM sessions s WHERE s.userId = u.id) AS lastSignInAt
+       FROM users u
+      ORDER BY u.createdAt DESC
+      LIMIT ?`,
+    [limit]
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    email: r.email,
+    role: r.role,
+    joinedAt: r.createdAt,
+    emailVerified: Boolean(r.emailVerifiedAt),
+    acceptedTerms: Boolean(r.termsAcceptedAt),
+    entries: Number(r.entries || 0),
+    lastActiveAt: [r.lastEntryAt, r.lastSignInAt].filter(Boolean).sort().pop() || null
+  }));
 }
 
 /** Counters for the admin view. Never a request body, never a user id. */
