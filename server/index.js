@@ -163,7 +163,7 @@ async function handleApi(req, res, url) {
     params,
     query: url.searchParams,
     token,
-    origin: `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host || 'localhost'}`,
+    origin: `${req.headers['x-forwarded-proto'] || (config.production ? 'https' : 'http')}://${req.headers.host || 'localhost'}`,
     ip: req.socket.remoteAddress || 'unknown'
   });
 

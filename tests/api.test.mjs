@@ -103,7 +103,7 @@ export default async function run() {
   ok(made.body.user.emailVerified === false, 'a new account starts unverified');
   ok((await dave.get('/api/episodes')).status === 200, 'but an unverified account still works fully');
 
-  const { get: dbGet2, all: dbAll2 } = await import('../server/db.js');
+  const { get: dbGet2, all: dbAll2, count: dbCount2 } = await import('../server/db.js');
   const terms = await dbGet2('SELECT termsAcceptedAt, termsVersion FROM users WHERE email = ?', ['dave@example.com']);
   ok(!!terms.termsAcceptedAt && !!terms.termsVersion, 'when the terms were accepted is recorded, with the version');
 
@@ -112,6 +112,21 @@ export default async function run() {
   ok(!(await dave.post('/api/auth/verify', { token: 'made-up' })).body.user, 'a forged token verifies nothing');
   ok((await dave.post('/api/auth/verify', { token: 'made-up' })).status === 400, 'and is refused');
   ok((await server.client().post('/api/auth/resend-verification')).status === 401, 'resending needs a session');
+
+  /* A PUBLIC_URL that is not an absolute address must never reach an email: the
+   * link looks plausible, a mail client auto-links it, and nobody arrives. */
+  const { config } = await import('../server/config.js');
+  const restore = config.email.publicUrl;
+  const linkFrom = async (value) => {
+    config.email.publicUrl = value;
+    const client = server.client();
+    await client.post('/api/auth/signup',
+      { email: `link-${Math.random().toString(36).slice(2, 8)}@example.com`, name: 'L', password: 'a-good-password', acceptedTerms: true });
+    const rows = await dbAll2("SELECT userId FROM email_tokens ORDER BY createdAt DESC LIMIT 1");
+    return rows.length > 0;
+  };
+  ok(await linkFrom('hello@fitnesskinda.fit'), 'a malformed PUBLIC_URL still issues a token rather than failing sign-up');
+  config.email.publicUrl = restore;
   ok((await bob.get(`/api/episodes/${id}`)).status === 404, "another user cannot read Alice's episode");
   ok((await bob.patch(`/api/episodes/${id}`, { endDate: '2026-09-09' })).status === 404, "another user cannot edit it");
   ok((await bob.del(`/api/episodes/${id}`)).status === 404, 'another user cannot delete it');
@@ -174,7 +189,9 @@ export default async function run() {
   const { run: dbRun } = await import('../server/db.js');
   await dbRun("UPDATE users SET role = 'admin' WHERE email = 'alice@example.com'");
   r = await alice.get('/api/admin/metrics');
-  ok(r.status === 200 && r.body.users.total === 4, 'an admin reads aggregate metrics');
+  const realTotal = await dbCount2('SELECT COUNT(*) FROM users');
+  ok(r.status === 200 && r.body.users.total === realTotal,
+    `an admin reads aggregate metrics (${realTotal} users)`);
   const blob = JSON.stringify(r.body);
   ok(!/travelled|Fever|Chills|alice@example\.com|bob@example\.com/.test(blob), 'admin metrics contain no health data and no emails');
   ok(typeof r.body.usage.confirmedPositive === 'number' && Array.isArray(r.body.daily), 'admin metrics are counts only');

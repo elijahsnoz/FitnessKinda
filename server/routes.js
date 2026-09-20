@@ -12,10 +12,26 @@ import { badRequest, forbidden, notFound, unauthorised } from './util.js';
 import { summaryText } from '../js/summary.js';
 import { DOMAINS } from '../js/registry.js';
 
+/**
+ * Where a link in an email should point.
+ *
+ * A PUBLIC_URL that is not an absolute http(s) address is worse than none at all:
+ * the link still looks plausible in the message, a mail client auto-links it, and
+ * the person lands nowhere. Refuse it and use the request's own origin, which is
+ * always right.
+ */
+function linkBase(origin) {
+  const configured = (config.email.publicUrl || '').trim();
+  if (!configured) return origin || '';
+  if (/^https?:\/\/[^\s/@]+$/.test(configured)) return configured;
+  console.error('[config] PUBLIC_URL is not an absolute http(s) URL; using the request origin instead');
+  return origin || '';
+}
+
 /** Issues a token and emails the link. Silent when email is not configured. */
 async function offerVerification(user, origin) {
   const token = await auth.issueEmailToken(user.id, 'verify');
-  const base = config.email.publicUrl || origin || '';
+  const base = linkBase(origin);
   await sendVerification({
     to: user.email,
     name: user.name,
