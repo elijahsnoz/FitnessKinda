@@ -183,6 +183,51 @@ export default async function run() {
   const { resetAllThrottles } = await import('../server/auth.js');
   resetAllThrottles();
 
+  /* ── password reset ── */
+  const forgetful = server.client();
+  await forgetful.post('/api/auth/signup',
+    { email: 'forgot@example.com', name: 'Forgetful', password: 'the-old-password', acceptedTerms: true });
+
+  let reset = await server.client().post('/api/auth/request-reset', { email: 'forgot@example.com' });
+  ok(reset.status === 200, 'asking for a reset link works');
+  reset = await server.client().post('/api/auth/request-reset', { email: 'nobody@example.com' });
+  ok(reset.status === 200, 'asking for one on an unknown address answers the same way');
+  ok(JSON.stringify(reset.body) === JSON.stringify({ ok: true }), 'and says nothing about whether the account exists');
+
+  const resetRows = await dbAll2("SELECT tokenHash, expiresAt FROM email_tokens WHERE purpose = 'reset'");
+  ok(resetRows.length === 1, 'exactly one reset token was issued, for the real account only');
+  ok(new Date(resetRows[0].expiresAt) - Date.now() < 2 * 3600 * 1000, 'a reset link expires within hours, not days');
+
+  ok((await server.client().post('/api/auth/reset', { token: 'made-up', password: 'a-new-password' })).status === 400,
+    'a forged reset token is refused');
+  ok((await server.client().post('/api/auth/reset', { token: 'made-up', password: 'short' })).status === 400,
+    'a short password is refused before the token is even looked at');
+
+  /* Drive a real reset by minting a token the way the route does. */
+  const { issueEmailToken } = await import('../server/auth.js');
+  const forgetfulUser = await dbGet2('SELECT id FROM users WHERE email = ?', ['forgot@example.com']);
+  const liveToken = await issueEmailToken(forgetfulUser.id, 'reset');
+
+  const oldSession = server.client();
+  await oldSession.post('/api/auth/login', { email: 'forgot@example.com', password: 'the-old-password' });
+  ok((await oldSession.get('/api/episodes')).status === 200, 'the old session works before the reset');
+
+  const resetter = server.client();
+  const done = await resetter.post('/api/auth/reset', { token: liveToken, password: 'a-brand-new-password' });
+  ok(done.status === 200 && done.body.user.email === 'forgot@example.com', 'the reset succeeds and signs you in');
+  ok(done.body.user.emailVerified === true, 'and marks the address verified, since the mailbox was proved');
+  ok((await oldSession.get('/api/episodes')).status === 401, 'every other session is ended by the reset');
+  ok((await resetter.get('/api/episodes')).status === 200, 'the new session works');
+
+  const stale = await server.client().post('/api/auth/reset', { token: liveToken, password: 'another-password' });
+  ok(stale.status === 400, 'a reset link cannot be used twice');
+
+  const after = server.client();
+  ok((await after.post('/api/auth/login', { email: 'forgot@example.com', password: 'the-old-password' })).status === 401,
+    'the old password no longer works');
+  ok((await after.post('/api/auth/login', { email: 'forgot@example.com', password: 'a-brand-new-password' })).status === 200,
+    'the new one does');
+
   /* ── admin ── */
   ok((await alice.get('/api/admin/metrics')).status === 403, 'a normal user cannot read admin metrics');
 

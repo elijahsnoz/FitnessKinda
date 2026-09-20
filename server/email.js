@@ -52,6 +52,21 @@ const shell = (heading, body, action, url) => `<!doctype html>
   </div>
 </body></html>`;
 
+export function sendPasswordReset({ to, name, url }) {
+  const hello = name ? `Hi ${name},` : 'Hi,';
+  return send({
+    to,
+    subject: 'Reset your FitnessKinda password',
+    text: `${hello}\n\nUse this link to choose a new password. It works for one hour and once only.\n\n${url}\n\nIf you did not ask for this, ignore it. Your password stays as it is.\n`,
+    html: shell(
+      'Choose a new password',
+      `${hello} use the button below to set a new password. The link works for one hour and once only. If you did not ask for this, ignore it and nothing changes.`,
+      'Choose a new password',
+      url
+    )
+  });
+}
+
 export function sendVerification({ to, name, url }) {
   const hello = name ? `Hi ${name},` : 'Hi,';
   return send({

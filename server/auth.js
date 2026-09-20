@@ -71,11 +71,11 @@ export async function createUser({ email, name, password, acceptedTerms }) {
  * password reset has a trustworthy address to send to, not as a gate.
  */
 
-const TOKEN_HOURS = 48;
+const TOKEN_HOURS = { verify: 48, reset: 1 };
 
 export async function issueEmailToken(userId, purpose = 'verify') {
   const token = randomBytes(32).toString('base64url');
-  const expires = new Date(Date.now() + TOKEN_HOURS * 3600 * 1000);
+  const expires = new Date(Date.now() + (TOKEN_HOURS[purpose] || 1) * 3600 * 1000);
   // One live token per purpose: issuing a new one retires the last.
   await run('DELETE FROM email_tokens WHERE userId = ? AND purpose = ?', [userId, purpose]);
   await run(
@@ -104,6 +104,22 @@ export async function markEmailVerified(userId) {
 
 export const findUserByEmail = async (email) =>
   publicUser(await get('SELECT * FROM users WHERE email = ?', [String(email || '').trim().toLowerCase()]));
+
+/**
+ * Sets a new password and ends every existing session.
+ *
+ * Whoever did this proved they hold the mailbox, so the address is marked
+ * verified at the same time. Ending the sessions matters: if the reset happened
+ * because someone else had the account, this is what removes them.
+ */
+export async function resetPassword(userId, password) {
+  const now = nowISO();
+  await run('UPDATE users SET passwordHash = ?, emailVerifiedAt = COALESCE(emailVerifiedAt, ?), updatedAt = ? WHERE id = ?',
+    [hashPassword(password), now, now, userId]);
+  await run('DELETE FROM sessions WHERE userId = ?', [userId]);
+  await run("DELETE FROM email_tokens WHERE userId = ? AND purpose = 'reset'", [userId]);
+  return findUser(userId);
+}
 
 export async function authenticate(email, password) {
   const row = await get('SELECT * FROM users WHERE email = ?', [String(email || '').trim().toLowerCase()]);

@@ -7,7 +7,7 @@
  * Bump CACHE when any shell file changes, or browsers will keep serving the old one.
  */
 
-const CACHE = 'fitnesskinda-shell-v13';
+const CACHE = 'fitnesskinda-shell-v14';
 
 const SHELL = [
   './',
@@ -20,7 +20,9 @@ const SHELL = [
   'terms.html',
   'privacy.html',
   'verify.html',
+  'reset.html',
   'js/verify.js',
+  'js/reset.js',
   'js/app.js',
   'js/insights.js',
   'js/views/parts.js',

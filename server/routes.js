@@ -5,7 +5,7 @@ import * as repo from './repo.js';
 import * as auth from './auth.js';
 import { adminMetrics } from './metrics.js';
 import { validateCredentials } from './validate.js';
-import { sendVerification, canSend } from './email.js';
+import { sendVerification, sendPasswordReset, canSend } from './email.js';
 import { config } from './config.js';
 import { dbStatus } from './db.js';
 import { badRequest, forbidden, notFound, unauthorised } from './util.js';
@@ -118,6 +118,47 @@ export const routes = [
       if (user.emailVerified) return ok({ alreadyVerified: true });
       await offerVerification(user, origin);
       return ok({ sent: canSend() });
+    }
+  },
+
+  {
+    method: 'POST',
+    path: '/api/auth/request-reset',
+    auth: false,
+    handler: async ({ body, ip, origin }) => {
+      auth.throttle(`reset:${ip}`, { limit: 5, windowMs: 60 * 60 * 1000 });
+      const email = String(body?.email || '').trim().toLowerCase();
+      const user = email ? await auth.findUserByEmail(email) : null;
+
+      /* Always the same answer. Telling a stranger whether an address has an
+       * account here would say something about that person's health. */
+      if (user) {
+        const token = await auth.issueEmailToken(user.id, 'reset');
+        await sendPasswordReset({
+          to: user.email,
+          name: user.name,
+          url: `${linkBase(origin)}/reset?token=${encodeURIComponent(token)}`
+        }).catch(() => {});
+      }
+      return ok({ ok: true });
+    }
+  },
+  {
+    method: 'POST',
+    path: '/api/auth/reset',
+    auth: false,
+    handler: async ({ body, ip }) => {
+      auth.throttle(`reset-use:${ip}`, { limit: 10, windowMs: 60 * 60 * 1000 });
+      const password = String(body?.password || '');
+      if (password.length < 8) throw badRequest('Use a password of at least 8 characters.');
+      if (password.length > 200) throw badRequest('That password is too long.');
+
+      const userId = await auth.consumeEmailToken(String(body?.token || ''), 'reset');
+      const user = await auth.resetPassword(userId, password);
+
+      // Signed in straight away, on a session issued after the old ones were cleared.
+      const { token, expires } = await auth.createSession(user.id);
+      return ok({ user }, { cookie: auth.sessionCookie(token, expires) });
     }
   },
 

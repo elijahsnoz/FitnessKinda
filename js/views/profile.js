@@ -82,6 +82,9 @@ export function renderProfile() {
         </label>
         <p id="auth-error" class="error" role="alert" hidden></p>
         <div class="actions"><button type="submit" class="btn primary" id="auth-submit">Sign in</button></div>
+        <div class="actions" id="wrap-forgot">
+          <button type="button" class="btn ghost" id="forgot">Forgotten your password?</button>
+        </div>
       </form>`
       : `<div class="card"><p style="margin:0;font-size:14.5px;color:var(--text-soft)">
           You're offline, so signing in will have to wait. Everything you record is saved on

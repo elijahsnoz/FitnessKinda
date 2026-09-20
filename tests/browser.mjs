@@ -162,6 +162,11 @@ export default async function run() {
     'and does not ask signing-in people to re-accept the terms');
   ok(await page.eval(`return getComputedStyle(document.querySelector('#wrap-authconfirm')).display === 'none'`),
     'signing in does not ask for the password twice');
+  ok(await page.eval(`return getComputedStyle(document.querySelector('#wrap-forgot')).display !== 'none'`),
+    'signing in offers a way out of a forgotten password');
+  await tap('#forgot', 250);
+  ok((await page.eval(`return document.querySelector('#auth-error').textContent`)).includes('Enter your email'),
+    'and asks for the address first rather than failing quietly');
 
   /* The password can be checked before it is committed to. */
   ok(await page.eval(`return document.querySelector('#auth-password').type === 'password'`), 'the password starts hidden');
@@ -193,6 +198,8 @@ export default async function run() {
   await wait(200);
   ok(await page.eval(`return getComputedStyle(document.querySelector('#wrap-consent')).display !== 'none'`),
     'creating an account asks you to accept the terms');
+  ok(await page.eval(`return getComputedStyle(document.querySelector('#wrap-forgot')).display === 'none'`),
+    'and does not offer a password reset to someone without an account yet');
   ok(await page.eval(`return !!document.querySelector('#wrap-consent a[href="/terms"]') && !!document.querySelector('#wrap-consent a[href="/privacy"]')`),
     'both documents are linked from the box');
   await page.eval(`
@@ -300,11 +307,31 @@ export default async function run() {
   await page.goto(`${server.origin}/terms`);
   await wait(400);
   ok((await text()).includes('not medical advice'), 'the terms lead with what this is not');
-  ok((await text()).includes('no password reset yet'), 'and are honest about what is missing');
+  ok((await text()).includes('ends every other session'), 'and say what a password reset actually does');
   await page.goto(`${server.origin}/privacy`);
   await wait(400);
   ok((await text()).includes('Your body. Your history. Your data.'), 'the privacy notice opens with the promise');
   ok((await text()).includes('We run no analytics'), 'and states what is not done');
+  await page.goto(`${server.origin}/reset`);
+  await wait(600);
+  ok((await text()).includes('incomplete'), 'the reset page handles a missing token gracefully');
+  await page.goto(`${server.origin}/reset?token=not-real`);
+  await wait(600);
+  ok(!!(await page.eval(`return document.querySelector('#reset-form')`)), 'with a token it offers the form');
+  await page.eval(`
+    document.querySelector('#reset-password').value = 'a-new-password';
+    const again = document.querySelector('#reset-confirm');
+    again.value = 'a-new-passwerd';
+    again.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;`);
+  await wait(200);
+  ok((await page.eval(`return document.querySelector('#reset-hint').textContent`)).includes('do not match'),
+    'the reset form checks the two passwords as you type');
+  await page.eval(`document.querySelector('#reset-form').requestSubmit(); return true;`);
+  await wait(300);
+  ok((await page.eval(`return document.querySelector('#reset-error').textContent`)).includes('not the same'),
+    'and refuses a mismatch');
+
   await page.goto(`${server.origin}/verify`);
   await wait(600);
   ok((await text()).includes('incomplete'), 'the verify page handles a missing token gracefully');

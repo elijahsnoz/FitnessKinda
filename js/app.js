@@ -241,6 +241,31 @@ function init() {
       return;
     }
 
+    if (el.id === 'forgot') {
+      const email = $('#auth-email').value.trim();
+      const box = $('#auth-error');
+      if (!email) {
+        box.textContent = 'Enter your email above and I will send a link to it.';
+        box.hidden = false;
+        $('#auth-email').focus();
+        return;
+      }
+      el.disabled = true;
+      el.textContent = 'Sending…';
+      try {
+        await (await import('./api.js')).api.requestReset(email);
+        box.hidden = true;
+        /* The same words whether or not that address has an account: saying
+           otherwise would tell a stranger something about someone's health. */
+        toast('If that address has an account, a link is on its way.');
+      } catch (err) {
+        toast(err.message || 'Could not send it just now.');
+      }
+      el.disabled = false;
+      el.textContent = 'Forgotten your password?';
+      return;
+    }
+
     if (el.id === 'resend-verify') {
       el.disabled = true;
       el.textContent = 'Sending…';
@@ -325,6 +350,7 @@ function init() {
       $('#wrap-authname').hidden = !signup;
       $('#wrap-authconfirm').hidden = !signup;
       $('#wrap-consent').hidden = !signup;
+      $('#wrap-forgot').hidden = signup;
       if (!signup) $('#auth-confirm').value = '';
       $('#auth-submit').textContent = signup ? 'Create account' : 'Sign in';
       $('#auth-password').autocomplete = signup ? 'new-password' : 'current-password';

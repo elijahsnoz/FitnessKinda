@@ -177,8 +177,9 @@ never request bodies, symptoms, notes or email addresses.
 
 - Backups are manual. Nothing runs them on a schedule.
 - No staging environment. `main` deploys straight to the site people use.
-- **No password reset.** A lost password still means a lost account; email
-  verification is the groundwork for fixing that, not the fix itself.
+- Password reset exists and is emailed. Without `RESEND_API_KEY` configured, the
+  request still succeeds and the link is written to the log instead, which is fine
+  for development and useless in production: set the key.
 - Email verification does not gate anything. An unverified account works fully, by
   design: nobody should be locked out of their own health record over an unread email.
 - The dump file contains password hashes; there is no encryption around it.
