@@ -306,6 +306,7 @@ main { max-width: 720px; margin: 0 auto; padding: 26px 20px 32px; }
 .actions + .actions { margin-top: 12px; }
 .note + .actions, .card + .actions, .snapshot + .actions, .summary + .actions,
 .timeline + .actions, form + .actions { margin-top: 18px; }
+.disclaimer + .actions { margin-top: 22px; }
 .actions + .hint { margin-top: 10px; }
 .btn {
   flex: 1; min-height: 50px; padding: 13px 18px;
