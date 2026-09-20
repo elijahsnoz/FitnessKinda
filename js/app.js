@@ -141,7 +141,7 @@ function openSheet() {
           <span>${esc(d.label)}<small>${esc(BLURB[d.type] || '')}</small></span>
         </button>`).join('')}
       </div>
-      <div class="actions" style="margin-top:14px">
+      <div class="actions">
         <button type="button" class="btn ghost" data-close-sheet>Not now</button>
       </div>
     </div>`;

@@ -7,7 +7,7 @@
  * Bump CACHE when any shell file changes, or browsers will keep serving the old one.
  */
 
-const CACHE = 'fitnesskinda-shell-v15';
+const CACHE = 'fitnesskinda-shell-v16';
 
 const SHELL = [
   './',
@@ -95,21 +95,14 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    caches.match(request).then((hit) => {
-      if (hit) return hit;
-      return fetch(request)
-        .then((response) => {
-          // Keep the cache current for anything served from this origin.
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE).then((c) => c.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() =>
-          // A navigation with no network falls back to the cached shell.
-          request.mode === 'navigate' ? caches.match('index.html') : Response.error()
-        );
-    })
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE).then((c) => c.put(request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(request).then((hit) => hit || Response.error()))
   );
 });

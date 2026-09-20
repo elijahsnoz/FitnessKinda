@@ -350,7 +350,23 @@ export default async function run() {
   await page.goto(server.origin);
   await wait(900);
 
-  /* ── 16. Viewports ── */
+  /* ── 16. Nothing may depend on an inline style ── */
+  await page.goto(server.origin);
+  await wait(900);
+  const inlineStyles = await page.eval(`
+    const seen = [];
+    for (const view of ['home', 'timeline', 'move', 'health', 'profile']) {
+      document.querySelector('.tab[data-view="' + view + '"]').click();
+      await new Promise(r => setTimeout(r, 150));
+      document.querySelectorAll('#view-' + view + ' [style]').forEach((el) =>
+        seen.push(view + ': ' + el.tagName.toLowerCase() + ' ' + el.getAttribute('style')));
+    }
+    return seen;`);
+  if (inlineStyles.length) console.error('  inline styles found:', inlineStyles.join(' | '));
+  ok(inlineStyles.length === 0,
+    'no screen relies on a style attribute, which our CSP silently drops');
+
+  /* ── 17. Viewports ── */
   for (const [w, h, name] of [[390, 780, 'mobile 390'], [768, 1024, 'tablet 768'], [1280, 900, 'desktop 1280']]) {
     await page.setViewport(w, h, w < 700);
     await tap('.tab[data-view="home"]', 320);

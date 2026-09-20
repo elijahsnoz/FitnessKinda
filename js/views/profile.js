@@ -24,7 +24,7 @@ export function renderProfile() {
     <div class="section-title">Your record</div>
     <div class="snapshot">
       <div class="snap"><span class="snap-label">Entries</span><b class="snap-value">${all.length}</b></div>
-      <div class="snap"><span class="snap-label">Since</span><b class="snap-value" style="font-size:16px">${oldest ? esc(fmtDate(oldest.startDate)) : '-'}</b></div>
+      <div class="snap"><span class="snap-label">Since</span><b class="snap-value is-small">${oldest ? esc(fmtDate(oldest.startDate)) : '-'}</b></div>
     </div>`;
 
   const data = `
@@ -86,7 +86,7 @@ export function renderProfile() {
           <button type="button" class="btn ghost" id="forgot">Forgotten your password?</button>
         </div>
       </form>`
-      : `<div class="card"><p style="margin:0;font-size:14.5px;color:var(--text-soft)">
+      : `<div class="card"><p class="card-note">
           You're offline, so signing in will have to wait. Everything you record is saved on
           this device as usual.</p></div>`;
 
@@ -137,7 +137,7 @@ export function renderProfile() {
     <p class="lede">${esc(syncLine())}.</p>
     ${lastError ? `<p class="error">${esc(lastError)}</p>` : ''}
     ${unverified ? `<div class="note verify-note">
-      <div style="display:flex;gap:11px">
+      <div class="note-row">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7h17v10h-17z"></path><path d="m3.5 7.5 8.5 6 8.5-6"></path></svg>
         <div><p><strong>Confirm your email.</strong> We sent a link to ${esc(user.email)}.
         Your account works either way; confirming it is what will let you recover the
@@ -161,7 +161,7 @@ export function renderProfile() {
 
     <div class="section-title">Account</div>
     <div class="card">
-      <p style="margin:0 0 14px;font-size:14.5px;color:var(--text-soft)">${esc(user.email)}</p>
+      <p class="card-note has-space">${esc(user.email)}</p>
       <div class="actions"><button type="button" class="btn ghost" id="sign-out">Sign out</button></div>
       <p class="hint">Signing out leaves this device's copy exactly where it is.</p>
     </div>`;

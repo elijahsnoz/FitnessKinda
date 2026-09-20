@@ -53,7 +53,7 @@ export function renderHealth() {
 
     <div class="section-title">Take it with you</div>
     <div class="card">
-      <p style="margin:0 0 14px;font-size:14.5px;line-height:1.55;color:var(--text-soft)">
+      <p class="card-note has-space">
         Your health history, organized into something a clinician can read in a minute.
       </p>
       <div class="actions">

@@ -45,7 +45,7 @@ export function entryCard(entry, { actions = true } = {}) {
     <div class="event-rail" aria-hidden="true"><span class="dot dot-${esc(badge.tone || 'neutral')}"></span></div>
     <article class="event-card">
       <div class="event-head">
-        <div style="min-width:0">
+        <div class="event-head-main">
           <p class="event-kind">${esc(d.label)}</p>
           <p class="event-title">${esc(sub || d.label)}</p>
           <p class="event-when">${esc(relativeDay(entry.startDate))}</p>
@@ -57,7 +57,7 @@ export function entryCard(entry, { actions = true } = {}) {
       ${rows.length || actions ? `<details class="event-more">
         <summary>Details</summary>
         ${rows.length ? `<dl>${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
-        ${actions ? `<div class="event-actions" style="justify-content:flex-end">
+        ${actions ? `<div class="event-actions is-end">
           <button type="button" class="btn small" data-edit="${esc(entry.id)}">Edit</button>
           <button type="button" class="btn small danger" data-delete="${esc(entry.id)}">Delete</button>
         </div>` : ''}

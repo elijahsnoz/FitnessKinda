@@ -135,6 +135,16 @@ main { max-width: 720px; margin: 0 auto; padding: 26px 20px 32px; }
 .req { color: var(--attention); }
 .num { font-variant-numeric: tabular-nums; }
 
+/* Classes for what used to be inline styles. Our style-src has no 'unsafe-inline',
+   so a style attribute in markup is simply ignored: everything must have a rule. */
+.card-note { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--text-soft); }
+.card-note.has-space { margin-bottom: 14px; }
+.hint.has-space { margin-top: 14px; }
+.event-head-main { min-width: 0; }
+.event-actions.is-end { justify-content: flex-end; }
+.note-row { display: flex; gap: 11px; }
+.snap-value.is-small { font-size: 16px; }
+
 /* ── Surfaces ──────────────────────────────────────────────────── */
 
 .card {
@@ -427,23 +437,56 @@ textarea { resize: vertical; line-height: 1.5; }
 }
 .link-row:hover svg { stroke: var(--teal); }
 
-/* ── Admin: the registered people, as metadata ─────────────────── */
+/* ── Admin ─────────────────────────────────────────────────────── */
 
+body.admin main { max-width: 760px; }
+body.admin .section-title:first-child { margin-top: 0; }
+
+.people-card { padding: 0; }
 .people { list-style: none; margin: 0; padding: 0; }
 .person {
-  display: flex; flex-wrap: wrap; gap: 10px 18px;
-  align-items: baseline; justify-content: space-between;
-  padding: 15px 0; border-bottom: 1px solid var(--line-soft);
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 16px 18px; border-bottom: 1px solid var(--line-soft);
 }
-.person:last-child { border-bottom: 0; padding-bottom: 0; }
-.person:first-child { padding-top: 0; }
-.person-main { min-width: 0; }
+.person:last-child { border-bottom: 0; }
+.person-avatar {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--teal-wash); color: var(--teal-ink);
+  font-size: 13px; font-weight: 600; letter-spacing: .02em;
+}
+.person-main { flex: 1; min-width: 0; }
 .person-name { margin: 0; font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; }
-.person-name .tag { margin-left: 7px; vertical-align: 2px; }
-.person-email { margin: 3px 0 0; font-size: 13.5px; color: var(--text-faint); overflow-wrap: anywhere; }
-.person-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-faint); }
+.person-name .tag { margin-left: 7px; vertical-align: 1px; }
+.person-email { margin: 2px 0 0; font-size: 13.5px; color: var(--text-faint); overflow-wrap: anywhere; }
+.person-facts {
+  display: flex; flex-wrap: wrap; gap: 4px 14px;
+  margin: 7px 0 0; font-size: 12.5px; color: var(--text-faint);
+}
 .person-facts .is-yes { color: var(--good); }
 .person-facts .is-no { color: var(--notice); }
+.person-count {
+  flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+.person-count b { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
+.person-count small { font-size: 11.5px; color: var(--text-faint); }
+
+.meters { list-style: none; margin: 0; padding: 0; display: grid; gap: 11px; }
+.meters li { display: flex; align-items: center; gap: 12px; font-size: 13.5px; }
+.meter-label { flex: 0 0 132px; color: var(--text-soft); }
+.meter-track { flex: 1; height: 9px; border-radius: 99px; background: var(--line-soft); overflow: hidden; }
+.meter-fill { display: block; height: 100%; background: var(--teal); border-radius: 99px; }
+.meter-n { flex: 0 0 34px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 7px 18px; margin: 0; font-size: 14px; }
+.facts dt { color: var(--text-faint); }
+.facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 480px) {
+  .meter-label { flex-basis: 104px; }
+  .person-count { align-self: center; }
+}
 
 /* ── Empty states ──────────────────────────────────────────────── */
 

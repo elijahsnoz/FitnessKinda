@@ -65,7 +65,7 @@ export function renderHome() {
       </div>
       <div class="section-title">Why bother</div>
       <div class="card">
-        <p style="margin:0;font-size:14.5px;line-height:1.6;color:var(--text-soft)">
+        <p class="card-note">
           Most apps tell you what to do. FitnessKinda helps you understand what has already
           been happening to you, and hands you a clear history when someone needs to see it.
         </p>
